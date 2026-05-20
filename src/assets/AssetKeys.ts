@@ -1,40 +1,40 @@
-export const AssetKeys = {
-  // Vault states
-  VAULT_SEALED:   'vault_sealed',
-  VAULT_CRACKED:  'vault_cracked',
-  VAULT_OPEN:     'vault_open',
-  VAULT_DOOR:     'vault_door',
+// Central registry of all asset keys and their file paths.
+// Drop the file into public/ at the path shown, then add the load call to BootScene.preload().
 
-  // Lucky Duck
-  LUCKY_DUCK_IDLE:      'lucky_duck_idle',
-  LUCKY_DUCK_HAPPY:     'lucky_duck_happy',
-  LUCKY_DUCK_SAD:       'lucky_duck_sad',
-  LUCKY_DUCK_SHOCKED:   'lucky_duck_shocked',
-  LUCKY_DUCK_CELEBRATE: 'lucky_duck_celebrate',
+export const ASSETS = {
+  // ── Backgrounds ───────────────────────────────────────────────────────────
+  BG_MAIN:        'bg_main',        // images/backgrounds/background.png
 
-  // Item frames (one per tier)
-  FRAME_GARBAGE:   'frame_garbage',
-  FRAME_COMMON:    'frame_common',
-  FRAME_RARE:      'frame_rare',
-  FRAME_EPIC:      'frame_epic',
-  FRAME_LEGENDARY: 'frame_legendary',
-  FRAME_ANCIENT:   'frame_ancient',
+  // ── Vault sprites (generated in BootScene until real art is ready) ────────
+  VAULT_BODY:     'vault_body',     // images/vault/vault_body.png
+  VAULT_DOOR:     'vault_door',     // images/vault/vault_door.png
+  VAULT_DIAL:     'vault_dial',     // images/vault/vault_dial.png
 
-  // UI
-  CHIP_STACK:    'chip_stack',
-  SCANNER_SWEEP: 'scanner_sweep',
-  COIN_SHOWER:   'coin_shower',
+  // ── Item tier icons (generated until real art is ready) ───────────────────
+  ITEM_GARBAGE:   'item_garbage',   // images/items/item_garbage.png
+  ITEM_COMMON:    'item_common',    // images/items/item_common.png
+  ITEM_RARE:      'item_rare',      // images/items/item_rare.png
+  ITEM_EPIC:      'item_epic',      // images/items/item_epic.png
+  ITEM_LEGENDARY: 'item_legendary', // images/items/item_legendary.png
+  ITEM_ANCIENT:   'item_ancient',   // images/items/item_ancient.png
 
-  // Audio
-  SFX_ANTE:          'sfx_ante',
-  SFX_INTEL:         'sfx_intel',
-  SFX_BID_ACCEPT:    'sfx_bid_accept',
-  SFX_BID_REJECT:    'sfx_bid_reject',
-  SFX_ITEM_REVEAL:   'sfx_item_reveal',
-  SFX_DOOR_OPEN:     'sfx_door_open',
-  SFX_DOOR_EMPTY:    'sfx_door_empty',
-  SFX_JACKPOT:       'sfx_jackpot',
-  SFX_LOSS:          'sfx_loss',
+  // ── UI ────────────────────────────────────────────────────────────────────
+  TITLE:          'title',          // images/ui/title.png
+  LOGO:           'logo',           // images/ui/logo.png
+  DUCK_MASCOT:    'duck_mascot',    // images/characters/ducking_main.png
+  DUCK_IDLE:      'duck_idle',      // images/animations/ducking_idle.png  (5×2 spritesheet, 10 frames)
+
+  // ── Audio — SFX ──────────────────────────────────────────────────────────
+  SFX_BID:        'sfx_bid',        // audio/sfx/bid_submit.mp3
+  SFX_VAULT_OPEN: 'sfx_vault_open', // audio/sfx/vault_open.mp3
+  SFX_ITEM:       'sfx_item',       // audio/sfx/item_reveal.mp3
+  SFX_JACKPOT:    'sfx_jackpot',    // audio/sfx/jackpot.mp3
+  SFX_WIN:        'sfx_win',        // audio/sfx/win.mp3
+  SFX_LOSE:       'sfx_lose',       // audio/sfx/lose.mp3
+
+  // ── Audio — Music ─────────────────────────────────────────────────────────
+  BGM_LOBBY:      'bgm_lobby',      // audio/music/lobby.mp3
+  BGM_BIDDING:    'bgm_bidding',    // audio/music/bidding.mp3
 } as const;
 
-export type AssetKey = typeof AssetKeys[keyof typeof AssetKeys];
+export type AssetKey = typeof ASSETS[keyof typeof ASSETS];

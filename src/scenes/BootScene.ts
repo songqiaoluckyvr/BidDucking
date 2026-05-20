@@ -1,12 +1,35 @@
 import Phaser from 'phaser';
 import { TIER_CONFIG } from '@config/TierConfig';
+import { ASSETS } from '@assets/AssetKeys';
 
 const ICON_SIZE = 72;
+const ASSET_BASE = 'assets/images/';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super({ key: 'Boot' }); }
 
-  preload() { /* real assets loaded here later */ }
+  preload() {
+    // Real art — load when the file exists; BootScene generates placeholders for anything missing.
+    this.load.image(ASSETS.BG_MAIN,      `${ASSET_BASE}backgrounds/background.png`);
+    this.load.image(ASSETS.TITLE,        `${ASSET_BASE}ui/title.png`);
+    this.load.image(ASSETS.DUCK_MASCOT,  `${ASSET_BASE}characters/ducking_main.png`);
+    this.load.spritesheet(ASSETS.DUCK_IDLE, `${ASSET_BASE}animations/ducking_idle.png`, {
+      frameWidth: 307, frameHeight: 512,
+    });
+
+    // Vault art (uncomment as files are added)
+    // this.load.image(ASSETS.VAULT_BODY,  `${ASSET_BASE}vault/vault_body.png`);
+    // this.load.image(ASSETS.VAULT_DOOR,  `${ASSET_BASE}vault/vault_door.png`);
+    // this.load.image(ASSETS.VAULT_DIAL,  `${ASSET_BASE}vault/vault_dial.png`);
+
+    // Item icons (uncomment as files are added)
+    // this.load.image(ASSETS.ITEM_GARBAGE,   `${ASSET_BASE}items/item_garbage.png`);
+    // this.load.image(ASSETS.ITEM_COMMON,    `${ASSET_BASE}items/item_common.png`);
+    // this.load.image(ASSETS.ITEM_RARE,      `${ASSET_BASE}items/item_rare.png`);
+    // this.load.image(ASSETS.ITEM_EPIC,      `${ASSET_BASE}items/item_epic.png`);
+    // this.load.image(ASSETS.ITEM_LEGENDARY, `${ASSET_BASE}items/item_legendary.png`);
+    // this.load.image(ASSETS.ITEM_ANCIENT,   `${ASSET_BASE}items/item_ancient.png`);
+  }
 
   create() {
     this.generateItemTextures();

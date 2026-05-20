@@ -40,8 +40,20 @@ function generateHiddenItems(rng: () => number): VaultItem[] {
   return generateItems(rng, count, hiddenWeights);
 }
 
-export function generateVault(band: RarityBand, seed?: string): Vault {
-  const resolvedSeed = seed ?? `vault_${Date.now()}_${Math.random()}`;
+export function generateVault(band: RarityBand, seed?: string, maxHouseValue?: number): Vault {
+  const MAX_ATTEMPTS = 12;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Vary the seed on retries so we don't get the same vault each time
+    const resolvedSeed = `${seed ?? `vault_${Date.now()}`}_a${attempt}`;
+    const vault = _generateVaultOnce(band, resolvedSeed);
+    if (maxHouseValue === undefined || vault.houseValue <= maxHouseValue) return vault;
+  }
+  // Fallback: scrap band is always cheap enough
+  return _generateVaultOnce('scrap', `${seed ?? Date.now()}_fallback`);
+}
+
+function _generateVaultOnce(band: RarityBand, seed: string): Vault {
+  const resolvedSeed = seed;
   const rng = createRng(seedFromString(resolvedSeed));
   const bandDef = RARITY_BAND_CONFIG[band];
 

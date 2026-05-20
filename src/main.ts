@@ -1,17 +1,14 @@
 import Phaser from 'phaser';
-import { BootScene } from './scenes/BootScene';
-import { LobbyScene } from './scenes/LobbyScene';
-import { IntelShopScene } from './scenes/IntelShopScene';
+import { BootScene }    from './scenes/BootScene';
+import { LobbyScene }   from './scenes/LobbyScene';
 import { BiddingScene } from './scenes/BiddingScene';
-import { RevealScene } from './scenes/RevealScene';
-import { ResultsScene } from './scenes/ResultsScene';
 
 new Phaser.Game({
   type: Phaser.AUTO,
   width: 960,
   height: 600,
-  backgroundColor: '#0a0a0f',
-  scene: [BootScene, LobbyScene, IntelShopScene, BiddingScene, RevealScene, ResultsScene],
+  backgroundColor: '#05040f',
+  scene: [BootScene, LobbyScene, BiddingScene],
   parent: document.body,
   scale: {
     mode: Phaser.Scale.FIT,
