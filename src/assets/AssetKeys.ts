@@ -21,6 +21,14 @@ export const ASSETS = {
   // ── UI ────────────────────────────────────────────────────────────────────
   TITLE:          'title',          // images/ui/title.png
   LOGO:           'logo',           // images/ui/logo.png
+  BID_COIN:       'bid_coin',       // images/ui/bid_coin.png
+  MAIN_BTN:       'main_btn',       // images/ui/main_btn.png
+  UI_BORDER:      'ui_border',      // images/ui/ui_border.png
+  UI_BTN_2:       'ui_btn_2',       // images/ui/ui_btn_2.png
+  EDGE_TITLE:     'edge_title',     // images/ui/edge_title.png
+  ITEM_SWEEP_CARD:  'item_sweep_card',  // images/ui/item_sweep_card.png
+  RARITY_SCAN_CARD: 'rarity_scan_card', // images/ui/Rarity_Scan_btn.png
+  SECRET_BOX_CARD:  'secret_box_card',  // images/ui/secret_box_btn.png
   DUCK_MASCOT:    'duck_mascot',    // images/characters/ducking_main.png
   DUCK_IDLE:      'duck_idle',      // images/animations/ducking_idle.png  (5×2 spritesheet, 10 frames)
 

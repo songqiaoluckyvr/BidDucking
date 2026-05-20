@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import { SessionManager } from '@game/SessionManager';
-import type { IIntelOption } from '@game/intel/IIntelOption';
 import type { IntelResult, RevealResult, SessionOutcome, VaultItem } from '@game/types';
 import { generateVault, pickRandomBand } from '@game/VaultGenerator';
 import { createRng, seedFromString } from '@game/rng';
@@ -38,11 +37,11 @@ const SLIDER_MAX = 200_000;
 const SLIDER_PAD = 24;
 
 // ── Vault loot grid ──────────────────────────────────────────────────────────
-const GSTEP  = 26;          // grid step (cell + gap)
-const GCELL  = 24;          // visible cell size
+const GSTEP  = 33;          // grid step (cell + gap)
+const GCELL  = 30;          // visible cell size
 const GCOLS  = 8;
-const GROW_M = 15;          // main vault rows
-const GROW_S = 5;           // secret vault rows
+const GROW_M = 13;          // main vault rows
+const GROW_S = 4;           // secret vault rows
 
 // Left edge of grid, centred inside the right panel
 const GRID_X   = (W - RIGHT_W) + Math.round((RIGHT_W - ((GCOLS - 1) * GSTEP + GCELL)) / 2);
@@ -57,18 +56,18 @@ const C_GREY   = '#d0d0e4';
 const INTEL_DISPLAY: Record<string, { icon: string; label: string; desc: string }> = {
   valueBand: {
     icon:  '□',
-    label: 'TOTAL ITEM INTEL',
-    desc:  'Outlines every item in the main vault, revealing their positions and sizes without showing tier or value.',
+    label: 'ITEM SWEEP',
+    desc:  "Shows every item's footprint in the vault. Size tells a story.",
   },
   doorSignal: {
     icon:  '◈',
     label: 'RARITY SCANNER',
-    desc:  'Scans the vault for high-rarity items. Tier-coloured borders appear on Rare and above items in the grid.',
+    desc:  'Highlights Rare+ items with tier colours. Spot the prize before you bid.',
   },
   digitPeek: {
     icon:  '⬡',
     label: 'SECRET BOX',
-    desc:  'Probes the hidden vault. If a secret door exists, tier outlines are drawn on its concealed items.',
+    desc:  'Peeks behind the hidden door — if one exists. Know before you go.',
   },
 };
 
@@ -99,7 +98,7 @@ export class BiddingScene extends Phaser.Scene {
   private bidAmountText!:  Phaser.GameObjects.Text;
   private feedbackText!:   Phaser.GameObjects.Text;
   private sliderFillGfx!:  Phaser.GameObjects.Graphics;
-  private sliderThumbGfx!: Phaser.GameObjects.Graphics;
+  private sliderThumb!:    Phaser.GameObjects.Image;
   private infoLines:       Phaser.GameObjects.Text[] = [];
   private bidHistoryTexts: Phaser.GameObjects.Text[] = [];
 
@@ -147,11 +146,16 @@ export class BiddingScene extends Phaser.Scene {
 
   private drawPanels() {
     const g = this.add.graphics();
-    g.fillStyle(PAL.n.panel, PAL.panelAlpha).fillRect(0, 0, LEFT_W, H);
+    // Left panel
+    g.fillStyle(PAL.n.panel, 0.72).fillRect(0, 0, LEFT_W, H);
     g.lineStyle(1, PAL.n.border, 1).strokeRect(0, 0, LEFT_W, H);
-    g.fillStyle(PAL.n.panel, PAL.panelAlpha).fillRect(W - RIGHT_W, 0, RIGHT_W, H);
+    g.fillStyle(PAL.n.cyan, 1).fillRect(0, 0, LEFT_W, 3);
+    // Right panel
+    g.fillStyle(PAL.n.panel, 0.72).fillRect(W - RIGHT_W, 0, RIGHT_W, H);
     g.lineStyle(1, PAL.n.border, 1).strokeRect(W - RIGHT_W, 0, RIGHT_W, H);
-    g.lineStyle(1, PAL.n.border, 0.5);
+    g.fillStyle(PAL.n.cyan, 1).fillRect(W - RIGHT_W, 0, RIGHT_W, 3);
+    // Dividers
+    g.lineStyle(1, PAL.n.borderBright, 0.4);
     g.lineBetween(LEFT_W, 0, LEFT_W, H);
     g.lineBetween(W - RIGHT_W, 0, W - RIGHT_W, H);
   }
@@ -163,28 +167,28 @@ export class BiddingScene extends Phaser.Scene {
     const state = this.session.getSessionState();
     const round = state.currentRound;
 
-    this.roundLabel = this.add.text(cx, 14, `ROUND ${round} / 5`, {
-      fontSize: '11px', color: C_GREY,
+    this.roundLabel = this.add.text(cx, 16, `ROUND ${round} OF 5`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
     }).setOrigin(0.5);
 
-    this.roundName = this.add.text(cx, 30, ROUND_CONFIG[round].name.toUpperCase(), {
-      fontSize: '10px', color: C_GREY,
+    this.roundName = this.add.text(cx, 34, ROUND_CONFIG[round].name.toUpperCase(), {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '12px', color: C_GREY,
     }).setOrigin(0.5);
 
-    this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 44, LEFT_W - 8, 44);
+    this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 50, LEFT_W - 8, 50);
 
-    this.add.text(cx, 56, 'BID HISTORY', { fontSize: '10px', color: C_ACTIVE }).setOrigin(0.5);
+    this.add.text(cx, 64, 'BID LOG', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_ACTIVE }).setOrigin(0.5);
 
     for (let i = 0; i < 5; i++) {
-      const t = this.add.text(cx, 74 + i * 22, '', {
-        fontSize: '12px', color: C_GREY,
+      const t = this.add.text(cx, 82 + i * 24, '', {
+        fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: C_GREY,
       }).setOrigin(0.5);
       this.bidHistoryTexts.push(t);
     }
 
-    this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 190, LEFT_W - 8, 190);
+    this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 204, LEFT_W - 8, 204);
 
-    const HISTORY_BOTTOM = 195;
+    const HISTORY_BOTTOM = 210;
     const availH = H - HISTORY_BOTTOM;
     const duck = this.add.image(cx, HISTORY_BOTTOM + availH / 2, ASSETS.DUCK_MASCOT);
     duck.setScale(Math.min(LEFT_W / duck.width, availH / duck.height));
@@ -195,75 +199,84 @@ export class BiddingScene extends Phaser.Scene {
   private buildCenterPanel() {
     const state = this.session.getSessionState();
 
-    this.add.text(MID_CX, 26, 'TOTAL VAULT VALUE', { fontSize: '11px', color: C_ACTIVE }).setOrigin(0.5);
-
-    this.totalValueText = this.add.text(MID_CX, 86, '—', {
-      fontSize: '52px', color: C_ACTIVE, fontStyle: 'bold',
+    // ── Zone 1: Vault value display ──────────────────────────────────────────
+    this.add.text(MID_CX, 16, 'VAULT VALUE', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
     }).setOrigin(0.5);
 
-    this.feedbackText = this.add.text(MID_CX, 132, '', {
-      fontSize: '14px', color: C_GREY,
+    this.totalValueText = this.add.text(MID_CX, 78, '—', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '56px', color: C_ACTIVE,
     }).setOrigin(0.5);
 
-    this.intelLineText = this.add.text(MID_CX, 156, '', {
-      fontSize: '12px', color: C_ACTIVE, align: 'center',
-      wordWrap: { width: W - LEFT_W - RIGHT_W - 20 },
+    this.feedbackText = this.add.text(MID_CX, 136, '', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '15px', color: C_GREY,
     }).setOrigin(0.5);
 
-    this.add.graphics().lineStyle(1, PAL.n.border, 0.35)
-      .lineBetween(LEFT_W + 16, 175, W - RIGHT_W - 16, 175);
+    this.intelLineText = this.add.text(MID_CX, 158, '', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: C_ACTIVE, align: 'center',
+      wordWrap: { width: W - LEFT_W - RIGHT_W - 24 },
+    }).setOrigin(0.5);
 
-    this.add.text(MID_CX, 188, 'VAULT INTEL', { fontSize: '10px', color: C_ACTIVE }).setOrigin(0.5);
+    // ── Zone 2: Vault intel ───────────────────────────────────────────────────
+    this.add.graphics().lineStyle(1, PAL.n.border, 0.4)
+      .lineBetween(LEFT_W + 20, 176, W - RIGHT_W - 20, 176);
+
+    this.add.text(MID_CX, 190, 'CLUES', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_ACTIVE,
+    }).setOrigin(0.5);
 
     for (let i = 0; i < 4; i++) {
-      const t = this.add.text(MID_CX, 206 + i * 24, '', {
-        fontSize: '12px', color: C_GREY, align: 'center',
-        wordWrap: { width: W - LEFT_W - RIGHT_W - 20 },
+      const t = this.add.text(MID_CX, 210 + i * 24, '', {
+        fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: C_GREY, align: 'center',
+        wordWrap: { width: W - LEFT_W - RIGHT_W - 24 },
       }).setOrigin(0.5);
       this.infoLines.push(t);
     }
 
-    this.add.graphics().lineStyle(1, PAL.n.border, 0.5)
-      .lineBetween(LEFT_W + 16, 306, W - RIGHT_W - 16, 306);
+    // ── Zone 3: Bid controls ──────────────────────────────────────────────────
+    this.add.graphics().lineStyle(1, PAL.n.border, 0.4)
+      .lineBetween(LEFT_W + 20, 302, W - RIGHT_W - 20, 302);
 
-    // ── Bid section ──
     const sliderLeft  = LEFT_W + SLIDER_PAD;
     const sliderRight = W - RIGHT_W - SLIDER_PAD;
     const sliderW     = sliderRight - sliderLeft;
-    const sliderY     = 412;
+    const sliderY     = 404;
 
     this.sliderTrackLeft  = sliderLeft;
     this.sliderTrackRight = sliderRight;
     this.sliderTrackY     = sliderY;
     this.sliderThumbX     = sliderLeft;
 
-    const yourBidLabel = this.add.text(MID_CX, 322, 'YOUR BID', { fontSize: '11px', color: C_ACTIVE }).setOrigin(0.5);
+    const yourBidLabel = this.add.text(MID_CX, 316, 'NAME YOUR PRICE', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
+    }).setOrigin(0.5);
     this.bidSectionObjects.push(yourBidLabel);
 
-    this.bidAmountText = this.add.text(MID_CX, 356, '—', {
-      fontSize: '26px', color: C_ACTIVE, fontStyle: 'bold',
+    this.bidAmountText = this.add.text(MID_CX, 354, '—', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '38px', color: C_ACTIVE,
     }).setOrigin(0.5);
     this.bidSectionObjects.push(this.bidAmountText);
 
     const trackGfx = this.add.graphics()
-      .fillStyle(0x2a2a40, 1).fillRoundedRect(sliderLeft, sliderY - 4, sliderW, 8, 4);
+      .fillStyle(0x1e1e32, 1).fillRoundedRect(sliderLeft, sliderY - 5, sliderW, 10, 5);
     this.bidSectionObjects.push(trackGfx);
 
-    this.sliderFillGfx  = this.add.graphics();
-    this.sliderThumbGfx = this.add.graphics();
-    this.bidSectionObjects.push(this.sliderFillGfx, this.sliderThumbGfx);
+    this.sliderFillGfx = this.add.graphics();
+    this.sliderThumb   = this.add.image(sliderLeft, sliderY, ASSETS.BID_COIN)
+      .setDisplaySize(36, 36).setOrigin(0.5);
+    this.bidSectionObjects.push(this.sliderFillGfx, this.sliderThumb);
     this.redrawSlider();
 
     const rangeMin = this.add.text(sliderLeft, sliderY + 20, `$${SLIDER_MIN.toLocaleString()}`, {
-      fontSize: '10px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
     }).setOrigin(0, 0.5);
     this.rangeMaxLabel = this.add.text(sliderRight, sliderY + 20, `$${this.effectiveMax.toLocaleString()}`, {
-      fontSize: '10px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
     }).setOrigin(1, 0.5);
     this.bidSectionObjects.push(rangeMin, this.rangeMaxLabel);
 
     const hitZone = this.add.rectangle(
-      (sliderLeft + sliderRight) / 2, sliderY, sliderW + 28, 52,
+      (sliderLeft + sliderRight) / 2, sliderY, sliderW + 28, 56,
     ).setInteractive({ useHandCursor: true })
       .on('pointerdown', (ptr: Phaser.Input.Pointer) => {
         this.isDragging = true;
@@ -271,21 +284,21 @@ export class BiddingScene extends Phaser.Scene {
       });
     this.bidSectionObjects.push(hitZone);
 
-    const btnY = 474;
+    const btnY = 472;
     const btnG = this.add.graphics();
     const drawBtn = (hov: boolean) => {
       btnG.clear();
-      btnG.fillStyle(hov ? 0x444455 : 0x1e1e2e, 1)
-        .fillRoundedRect(sliderLeft, btnY - 22, sliderW, 44, 6);
-      btnG.lineStyle(1, hov ? 0xddddee : 0x888899, 1)
-        .strokeRoundedRect(sliderLeft, btnY - 22, sliderW, 44, 6);
+      btnG.fillStyle(hov ? 0x1a3a4a : 0x0e1e28, 1)
+        .fillRoundedRect(sliderLeft, btnY - 25, sliderW, 50, 8);
+      btnG.lineStyle(2, hov ? PAL.n.cyan : PAL.n.borderBright, 1)
+        .strokeRoundedRect(sliderLeft, btnY - 25, sliderW, 50, 8);
     };
     drawBtn(false);
     this.bidSectionObjects.push(btnG);
 
     const btnCx     = (sliderLeft + sliderRight) / 2;
-    const submitBtn = this.add.text(btnCx, btnY, 'SUBMIT BID', {
-      fontSize: '16px', color: C_ACTIVE, fontStyle: 'bold',
+    const submitBtn = this.add.text(btnCx, btnY, 'LOCK IT IN', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '20px', color: C_ACTIVE,
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.bidSectionObjects.push(submitBtn);
 
@@ -294,10 +307,10 @@ export class BiddingScene extends Phaser.Scene {
     submitBtn.on('pointerdown',  () => this.submitBid());
 
     const costStr = state.intelCost > 0
-      ? `Ante: $${state.antePaid.toLocaleString()}  ·  Intel: $${state.intelCost.toLocaleString()}`
-      : `Ante: $${state.antePaid.toLocaleString()}`;
+      ? `Ante $${state.antePaid.toLocaleString()}  ·  Intel $${state.intelCost.toLocaleString()}`
+      : `Ante $${state.antePaid.toLocaleString()}`;
     const costLabel = this.add.text(MID_CX, H - 14, costStr, {
-      fontSize: '10px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
     }).setOrigin(0.5);
     this.bidSectionObjects.push(costLabel);
   }
@@ -317,7 +330,7 @@ export class BiddingScene extends Phaser.Scene {
 
     // "VAULT" label above main grid
     this.add.text(W - RIGHT_W + RIGHT_W / 2, GRID_Y_M - 4, 'VAULT', {
-      fontSize: '8px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: C_GREY,
     }).setOrigin(0.5, 1).setDepth(1);
 
     // Separator + "SECRET VAULT" label
@@ -327,7 +340,7 @@ export class BiddingScene extends Phaser.Scene {
       .lineBetween(GRID_X, sepY, GRID_X + (GCOLS - 1) * GSTEP + GCELL, sepY);
 
     this.add.text(W - RIGHT_W + RIGHT_W / 2, sepY + 3, 'SECRET VAULT', {
-      fontSize: '7px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '10px', color: C_GREY,
     }).setOrigin(0.5, 0).setDepth(1);
 
     this.drawGridCells(g, GRID_Y_S, GROW_S, true);
@@ -337,13 +350,14 @@ export class BiddingScene extends Phaser.Scene {
   }
 
   private drawGridCells(g: Phaser.GameObjects.Graphics, gridY: number, rows: number, isSecret: boolean) {
-    const bgColor = isSecret ? 0x0b0d1e : 0x0d0b20;
+    const bgColor  = isSecret ? 0x9496b8 : 0x9a9cbe;
+    const brdColor = isSecret ? 0xb0b2d0 : 0xb8bada;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < GCOLS; c++) {
         const x = GRID_X + c * GSTEP;
         const y = gridY + r * GSTEP;
-        g.fillStyle(bgColor, 0.92).fillRect(x, y, GCELL, GCELL);
-        g.lineStyle(1, PAL.n.border, 0.25).strokeRect(x, y, GCELL, GCELL);
+        g.fillStyle(bgColor, 0.35).fillRect(x, y, GCELL, GCELL);
+        g.lineStyle(1, brdColor, 0.75).strokeRect(x, y, GCELL, GCELL);
       }
     }
   }
@@ -386,12 +400,11 @@ export class BiddingScene extends Phaser.Scene {
 
   private pickItemSize(item: VaultItem, idx: number): { w: number; h: number } {
     const TIER_SIZES: Record<string, Array<{ w: number; h: number }>> = {
-      garbage:   [{ w: 1, h: 1 }],
-      common:    [{ w: 1, h: 1 }, { w: 1, h: 1 }, { w: 1, h: 2 }],
-      rare:      [{ w: 1, h: 1 }, { w: 1, h: 2 }, { w: 2, h: 2 }],
-      epic:      [{ w: 1, h: 2 }, { w: 2, h: 2 }, { w: 1, h: 3 }],
-      legendary: [{ w: 2, h: 2 }, { w: 1, h: 3 }, { w: 3, h: 3 }],
-      ancient:   [{ w: 2, h: 2 }, { w: 3, h: 3 }],
+      common:    [{ w: 1, h: 1 }],
+      uncommon:  [{ w: 1, h: 1 }],
+      rare:      [{ w: 1, h: 1 }, { w: 2, h: 2 }],
+      epic:      [{ w: 2, h: 2 }],
+      legendary: [{ w: 2, h: 2 }, { w: 3, h: 3 }],
     };
     const sizes = TIER_SIZES[item.tier] ?? [{ w: 1, h: 1 }];
     const hash  = item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) + idx * 13;
@@ -446,119 +459,101 @@ export class BiddingScene extends Phaser.Scene {
 
     const dismiss = (result: IntelResult | null) => {
       pop.forEach(o => o.destroy());
-
       if (result) {
         this.intelLineText.setText(this.formatIntel(result));
         this.applyIntelEffect(result.intelId);
       }
-
-      // Recalculate slider cap — intel cost reduces available bankroll
       const intelCost = this.session.getSessionState().intelCost;
       this.effectiveMax = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, this.playerBalance - intelCost));
       this.rangeMaxLabel.setText(`$${this.effectiveMax.toLocaleString()}`);
     };
 
-    // Dim backdrop — absorbs clicks to game UI below
+    const D = 11;
+
+    // Dim backdrop
     pop.push(
-      this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.82)
+      this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.90)
         .setDepth(10).setInteractive(),
     );
 
+    // "CHOOSE YOUR EDGE" title banner — text baked into image
     pop.push(
-      this.add.text(W / 2, 30, 'PRE-AUCTION INTEL', {
-        fontSize: '22px', color: PAL.gold, fontStyle: 'bold',
-      }).setOrigin(0.5).setDepth(11),
+      this.add.image(W / 2, 82, ASSETS.EDGE_TITLE)
+        .setDisplaySize(780, 174).setOrigin(0.5).setDepth(D),
     );
 
-    pop.push(
-      this.add.text(W / 2, 58, 'Purchase one dossier before the vault opens — or go in blind.', {
-        fontSize: '12px', color: C_GREY,
-      }).setOrigin(0.5).setDepth(11),
-    );
+    // ─── Intel cards ─────────────────────────────────────────────────────────
+    const CARD_W = 220; const CARD_H = 345; const CARD_GAP = 24;
+    const x0 = (W - (3 * CARD_W + 2 * CARD_GAP)) / 2;
+    const cardsTopY = 172;
 
-    const CARD_W = 220; const CARD_H = 272; const CARD_GAP = 22;
-    const totalW = 3 * CARD_W + 2 * CARD_GAP;
-    const x0     = (W - totalW) / 2;
-    const cardsY = 90;
+    const CARD_ASSET: Record<string, string> = {
+      valueBand:  ASSETS.ITEM_SWEEP_CARD,
+      doorSignal: ASSETS.RARITY_SCAN_CARD,
+      digitPeek:  ASSETS.SECRET_BOX_CARD,
+    };
 
     this.session.getAvailableIntel().forEach((opt, i) => {
       const cx = x0 + i * (CARD_W + CARD_GAP) + CARD_W / 2;
-      const cy = cardsY + CARD_H / 2;
-      this.buildIntelCard(cx, cy, CARD_W, CARD_H, opt, dismiss, pop);
+      const cy = cardsTopY + CARD_H / 2;
+
+      const isSecret = opt.id === 'digitPeek';
+      const cw = isSecret ? Math.round(CARD_W * 0.95) : CARD_W;
+      const ch = isSecret ? Math.round(CARD_H * 0.95) : CARD_H;
+      const cardImg = this.add.image(cx, cy, CARD_ASSET[opt.id] ?? ASSETS.ITEM_SWEEP_CARD)
+        .setDisplaySize(cw, ch).setOrigin(0.5).setDepth(D);
+      pop.push(cardImg);
+
+      // Price
+      pop.push(
+        this.add.text(cx, cardsTopY + 158, `$${opt.cost.toLocaleString()}`, {
+          fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '28px', color: PAL.gold,
+        }).setOrigin(0.5).setDepth(D),
+      );
+
+      // Description
+      const display = INTEL_DISPLAY[opt.id];
+      pop.push(
+        this.add.text(cx, cardsTopY + 200, display?.desc ?? opt.description, {
+          fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '12px', color: '#c0c0d8',
+          wordWrap: { width: CARD_W - 24 }, align: 'center', lineSpacing: 4,
+        }).setOrigin(0.5, 0).setDepth(D),
+      );
+
+      // GRAB THIS button
+      const btnY = cardsTopY + CARD_H - 44;
+      const btnImg = this.add.image(cx, btnY, ASSETS.UI_BTN_2)
+        .setDisplaySize(CARD_W - 26, 58).setOrigin(0.5).setDepth(D);
+      pop.push(btnImg);
+      pop.push(
+        this.add.text(cx, btnY, 'GRAB THIS', {
+          fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '15px', color: C_ACTIVE,
+        }).setOrigin(0.5).setDepth(D + 1),
+      );
+
+      // Hit zone — full card
+      const hit = this.add.rectangle(cx, cy, CARD_W, CARD_H)
+        .setInteractive({ useHandCursor: true }).setDepth(D + 1);
+      pop.push(hit);
+      hit.on('pointerover', () => { cardImg.setTint(0xbbccff); btnImg.setTint(0xaaddff); });
+      hit.on('pointerout',  () => { cardImg.clearTint(); btnImg.clearTint(); });
+      hit.on('pointerdown', () => dismiss(this.session.purchaseIntel(opt.id)));
     });
 
-    const skipY = cardsY + CARD_H + 26;
-    const skipBtn = this.add.text(W / 2, skipY, '[ Go In Blind — Skip Intel ]', {
-      fontSize: '13px', color: C_GREY,
-    }).setOrigin(0.5).setDepth(11).setInteractive({ useHandCursor: true });
-    skipBtn.on('pointerover', () => skipBtn.setColor(C_ACTIVE));
-    skipBtn.on('pointerout',  () => skipBtn.setColor(C_GREY));
-    skipBtn.on('pointerdown', () => dismiss(null));
-    pop.push(skipBtn);
-  }
-
-  private buildIntelCard(
-    cx: number, cy: number, cardW: number, cardH: number,
-    option: IIntelOption,
-    onSelect: (result: IntelResult | null) => void,
-    pop: Phaser.GameObjects.GameObject[],
-  ) {
-    const lx = cx - cardW / 2;
-    const ty = cy - cardH / 2;
-    const R  = 10;
-    const D  = 11;
-
-    const display = INTEL_DISPLAY[option.id] ?? {
-      icon: '?', label: option.flavorLabel.toUpperCase(), desc: option.description,
-    };
-
-    const bg = this.add.graphics().setDepth(D);
-    const draw = (hov: boolean) => {
-      bg.clear();
-      bg.fillStyle(hov ? PAL.n.panelAlt : PAL.n.panel, hov ? PAL.panelAltAlpha : PAL.cardAlpha);
-      bg.fillRoundedRect(lx, ty, cardW, cardH, R);
-      bg.lineStyle(hov ? 2 : 1, hov ? PAL.n.borderGlow : PAL.n.border, 1);
-      bg.strokeRoundedRect(lx, ty, cardW, cardH, R);
-      bg.fillStyle(hov ? PAL.n.cyan : PAL.n.borderBright, 1);
-      bg.fillRoundedRect(lx, ty, cardW, 3, { tl: R, tr: R, bl: 0, br: 0 });
-    };
-    draw(false);
-
-    const icon = this.add.text(cx, ty + 36, display.icon, {
-      fontSize: '28px', color: PAL.cyan, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(D);
-
-    this.add.graphics().setDepth(D)
-      .lineStyle(1, PAL.n.border, 1)
-      .lineBetween(lx + 16, ty + 66, lx + cardW - 16, ty + 66);
-
-    const flavorLbl = this.add.text(cx, ty + 82, display.label, {
-      fontSize: '10px', color: PAL.cyan, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(D);
-
-    const costLbl = this.add.text(cx, ty + 106, `$${option.cost.toLocaleString()}`, {
-      fontSize: '22px', color: PAL.gold, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(D);
-
-    const desc = this.add.text(cx, ty + 144, display.desc, {
-      fontSize: '11px', color: C_ACTIVE,
-      wordWrap: { width: cardW - 28 }, align: 'center', lineSpacing: 3,
-    }).setOrigin(0.5, 0).setDepth(D);
-
-    const buyBtn = this.add.text(cx, ty + cardH - 24, '[ PURCHASE ]', {
-      fontSize: '13px', color: PAL.gold, fontStyle: 'bold',
-    }).setOrigin(0.5).setDepth(D);
-
-    const hit = this.add.rectangle(cx, cy, cardW, cardH)
-      .setInteractive({ useHandCursor: true }).setDepth(D);
-    hit.on('pointerover', () => { draw(true);  buyBtn.setColor(C_ACTIVE); });
-    hit.on('pointerout',  () => { draw(false); buyBtn.setColor(PAL.gold); });
-    hit.on('pointerdown', () => {
-      const result = this.session.purchaseIntel(option.id);
-      onSelect(result);
-    });
-
-    pop.push(bg, icon, flavorLbl, costLbl, desc, buyBtn, hit);
+    // Fly Blind button
+    const skipY = cardsTopY + CARD_H + 36;
+    const skipBtnW = 520; const skipBtnH = 70;
+    const skipImg = this.add.image(W / 2, skipY, ASSETS.UI_BTN_2)
+      .setDisplaySize(skipBtnW, skipBtnH).setOrigin(0.5).setDepth(D);
+    const skipText = this.add.text(W / 2, skipY, '[ Fly Blind — No Intel ]', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '18px', color: '#9090c0',
+    }).setOrigin(0.5).setDepth(D + 1);
+    const skipHit = this.add.rectangle(W / 2, skipY, skipBtnW, skipBtnH)
+      .setInteractive({ useHandCursor: true }).setDepth(D + 1);
+    skipHit.on('pointerover', () => { skipImg.setTint(0xbbccff); skipText.setColor(C_ACTIVE); });
+    skipHit.on('pointerout',  () => { skipImg.clearTint(); skipText.setColor('#9090c0'); });
+    skipHit.on('pointerdown', () => dismiss(null));
+    pop.push(skipImg, skipText, skipHit);
   }
 
   // ─── Slider ───────────────────────────────────────────────────────────────
@@ -582,22 +577,20 @@ export class BiddingScene extends Phaser.Scene {
     const { sliderTrackLeft: left, sliderTrackY: y, sliderThumbX: tx } = this;
     this.sliderFillGfx.clear();
     if (tx > left) {
-      this.sliderFillGfx.fillStyle(0xffffff, 0.85).fillRoundedRect(left, y - 4, tx - left, 8, 4);
+      this.sliderFillGfx.fillStyle(PAL.n.cyan, 0.9).fillRoundedRect(left, y - 5, tx - left, 10, 5);
     }
-    this.sliderThumbGfx.clear();
-    this.sliderThumbGfx.fillStyle(0xffffff, 1).fillCircle(tx, y, 14);
-    this.sliderThumbGfx.lineStyle(2, 0x666677, 1).strokeCircle(tx, y, 14);
+    this.sliderThumb.setPosition(tx, y);
   }
 
   // ─── Bid submission ───────────────────────────────────────────────────────
 
   private submitBid() {
     if (this.bidAmount <= 0) {
-      this.feedbackText.setText('Move the slider to place a bid');
+      this.feedbackText.setText('Set your price first');
       return;
     }
     if (this.bidAmount > this.effectiveMax) {
-      this.feedbackText.setText('Bid exceeds your available balance');
+      this.feedbackText.setText("Can't bet what you don't have");
       return;
     }
 
@@ -629,7 +622,7 @@ export class BiddingScene extends Phaser.Scene {
     this.bidAmountText.setText('—');
 
     const newRound = this.session.getCurrentRound();
-    this.roundLabel.setText(`ROUND ${newRound} / 5`);
+    this.roundLabel.setText(`ROUND ${newRound} OF 5`);
     this.roundName.setText(ROUND_CONFIG[newRound].name.toUpperCase());
 
     if (result.revealResult) this.appendReveal(result.revealResult);
@@ -644,10 +637,10 @@ export class BiddingScene extends Phaser.Scene {
 
   private showBidPopup(type: 'accepted' | 'tooHigh' | 'tooLow' | 'finalRound', onDone?: () => void) {
     const cfg: Record<string, { text: string; color: string; flashCol: number; holdMs: number }> = {
-      accepted:   { text: 'BID ACCEPTED',    color: PAL.green, flashCol: PAL.n.green, holdMs: 900  },
-      tooHigh:    { text: '▲  TOO HIGH',     color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
-      tooLow:     { text: '▼  TOO LOW',      color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
-      finalRound: { text: 'FINAL ROUND',     color: PAL.gold,  flashCol: PAL.n.gold,  holdMs: 1000 },
+      accepted:   { text: 'DEAL SEALED!',    color: PAL.green, flashCol: PAL.n.green, holdMs: 900  },
+      tooHigh:    { text: '▲  OVERSHOT',     color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
+      tooLow:     { text: '▼  THINK BIGGER', color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
+      finalRound: { text: 'LAST SHOT!',      color: PAL.gold,  flashCol: PAL.n.gold,  holdMs: 1000 },
     };
     const { text, color, flashCol, holdMs } = cfg[type];
 
@@ -657,7 +650,7 @@ export class BiddingScene extends Phaser.Scene {
     // Dark pill behind text
     const pill = this.add.graphics().setDepth(24);
     const textObj = this.add.text(MID_CX, H / 2, text, {
-      fontSize: '46px', color, fontStyle: 'bold',
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '48px', color,
       stroke: '#000000', strokeThickness: 10,
     }).setOrigin(0.5).setScale(0).setAlpha(0).setDepth(25);
 
@@ -711,26 +704,26 @@ export class BiddingScene extends Phaser.Scene {
     const state   = this.session.getSessionState();
     const vault   = state.vault;
 
-    this.add.text(MID_CX, 322, 'ITEMS FOUND', { fontSize: '11px', color: C_ACTIVE }).setOrigin(0.5);
+    this.add.text(MID_CX, 322, 'LOOT HAUL', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: C_ACTIVE }).setOrigin(0.5);
 
     const runningText = this.add.text(MID_CX, 362, '$0', {
-      fontSize: '30px', color: C_ACTIVE, fontStyle: 'bold',
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '36px', color: C_ACTIVE,
     }).setOrigin(0.5).setAlpha(0);
 
     const netLabel = this.add.text(MID_CX, 420, '', {
-      fontSize: '11px', color: C_GREY,
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: C_GREY,
     }).setOrigin(0.5).setAlpha(0);
 
     const netResult = this.add.text(MID_CX, 456, '', {
-      fontSize: '26px', color: C_ACTIVE, fontStyle: 'bold',
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '32px', color: C_ACTIVE,
     }).setOrigin(0.5).setAlpha(0);
 
     // Clear intel effect outlines — items will reveal their true colours
     this.gridEffectGfx.clear();
 
     // ── Suspense buildup ──────────────────────────────────────────────────────
-    const suspense = this.add.text(MID_CX, H / 2 - 10, 'OPENING VAULT', {
-      fontSize: '20px', color: C_GREY, fontStyle: 'bold', letterSpacing: 6,
+    const suspense = this.add.text(MID_CX, H / 2 - 10, 'CRACKING THE SAFE', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '22px', color: C_GREY, letterSpacing: 6,
     }).setOrigin(0.5).setAlpha(0).setDepth(5);
 
     // Pulse the grid during buildup
@@ -785,7 +778,7 @@ export class BiddingScene extends Phaser.Scene {
     if (hasHiddenDoor) {
       this.time.delayedCall(afterSurface + 300, () => {
         this.screenFlash(0x4a0080, 0.22, 3);
-        this.feedbackText.setText('HIDDEN DOOR FOUND');
+        this.feedbackText.setText('SECRET PASSAGE FOUND!');
       });
       hiddenItems.forEach((item, i) => {
         this.time.delayedCall(afterSurface + 700 + i * step, () => {
@@ -833,7 +826,7 @@ export class BiddingScene extends Phaser.Scene {
     // Value text centred in tile
     const maxFontSize = ph >= 48 ? 10 : 8;
     const price = this.add.text(x + pw / 2, y + ph / 2, `$${placed.item.value.toLocaleString()}`, {
-      fontSize: `${maxFontSize}px`, color: placed.item.tierDef.frameColor, fontStyle: 'bold',
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: `${maxFontSize}px`, color: placed.item.tierDef.frameColor,
       align: 'center', wordWrap: { width: pw - 4 },
     }).setOrigin(0.5).setAlpha(0).setDepth(5);
     this.tweens.add({ targets: price, alpha: 1, duration: 200, delay: 140 });
@@ -860,7 +853,7 @@ export class BiddingScene extends Phaser.Scene {
   private flashJackpot(bonus: number) {
     this.screenFlash(0xffd700, 0.4, 3);
     const jp = this.add.text(W - RIGHT_W / 2, H / 2, `JACKPOT!\n+$${bonus.toLocaleString()}`, {
-      fontSize: '28px', color: PAL.gold, fontStyle: 'bold', align: 'center',
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '28px', color: PAL.gold, align: 'center',
       stroke: '#000000', strokeThickness: 6,
     }).setOrigin(0.5).setScale(0).setDepth(21);
     this.tweens.add({ targets: jp, scale: 1, duration: 360, ease: 'Back.easeOut' });
@@ -883,13 +876,13 @@ export class BiddingScene extends Phaser.Scene {
     const sign   = profit ? '+' : '-';
     const abs    = Math.abs(outcome.netProfit);
 
-    netLabel.setText('NET RESULT').setAlpha(1);
+    netLabel.setText('YOUR CUT').setAlpha(1);
     netResult.setText(`${sign}$0`).setAlpha(1);
     this.countUp(netResult, 0, abs, 900, `${sign}$`);
 
     this.time.delayedCall(1100, () => {
-      this.add.text(MID_CX, H - 38, `New balance: $${newBalance.toLocaleString()}`, {
-        fontSize: '12px', color: C_GREY,
+      this.add.text(MID_CX, H - 38, `BANK: $${newBalance.toLocaleString()}`, {
+        fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '12px', color: C_GREY,
       }).setOrigin(0.5);
 
       const sliderLeft  = LEFT_W + SLIDER_PAD;
@@ -897,15 +890,15 @@ export class BiddingScene extends Phaser.Scene {
       const btnG = this.add.graphics();
       const drawBtn = (hov: boolean) => {
         btnG.clear();
-        btnG.fillStyle(hov ? 0x444455 : 0x1e1e2e, 1)
-          .fillRoundedRect(sliderLeft, H - 64, sliderRight - sliderLeft, 44, 6);
-        btnG.lineStyle(1, hov ? 0xddddee : 0x888899, 1)
-          .strokeRoundedRect(sliderLeft, H - 64, sliderRight - sliderLeft, 44, 6);
+        btnG.fillStyle(hov ? 0x1a3a4a : 0x0e1e28, 1)
+          .fillRoundedRect(sliderLeft, H - 68, sliderRight - sliderLeft, 50, 8);
+        btnG.lineStyle(2, hov ? PAL.n.cyan : PAL.n.borderBright, 1)
+          .strokeRoundedRect(sliderLeft, H - 68, sliderRight - sliderLeft, 50, 8);
       };
       drawBtn(false);
 
-      const playBtn = this.add.text(MID_CX, H - 42, 'PLAY AGAIN', {
-        fontSize: '16px', color: C_ACTIVE, fontStyle: 'bold',
+      const playBtn = this.add.text(MID_CX, H - 43, 'HIT ANOTHER VAULT', {
+        fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '20px', color: C_ACTIVE,
       }).setOrigin(0.5).setInteractive({ useHandCursor: true });
       playBtn.on('pointerover',  () => drawBtn(true));
       playBtn.on('pointerout',   () => drawBtn(false));

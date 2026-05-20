@@ -3,7 +3,7 @@ import { BootScene }    from './scenes/BootScene';
 import { LobbyScene }   from './scenes/LobbyScene';
 import { BiddingScene } from './scenes/BiddingScene';
 
-new Phaser.Game({
+const startGame = () => new Phaser.Game({
   type: Phaser.AUTO,
   width: 960,
   height: 600,
@@ -15,3 +15,5 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
 });
+
+document.fonts.load('700 1em Rajdhani').then(startGame).catch(startGame);

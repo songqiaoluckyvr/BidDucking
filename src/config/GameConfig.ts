@@ -14,25 +14,25 @@ export const RARITY_BAND_CONFIG: Record<RarityBand, RarityBandDefinition> = {
   scrap: {
     band: 'scrap', label: 'Scrap',
     itemCountMin: 5, itemCountMax: 7,
-    tierWeights: { garbage: 50, common: 35, rare: 15, epic: 0, legendary: 0, ancient: 0 },
+    tierWeights: { common: 55, uncommon: 30, rare: 15, epic: 0,  legendary: 0  },
     hiddenDoorProbability: 0.15,
   },
   standard: {
     band: 'standard', label: 'Standard',
     itemCountMin: 5, itemCountMax: 8,
-    tierWeights: { garbage: 20, common: 40, rare: 30, epic: 10, legendary: 0, ancient: 0 },
+    tierWeights: { common: 25, uncommon: 40, rare: 25, epic: 10, legendary: 0  },
     hiddenDoorProbability: 0.25,
   },
   premium: {
     band: 'premium', label: 'Premium',
     itemCountMin: 6, itemCountMax: 9,
-    tierWeights: { garbage: 10, common: 20, rare: 35, epic: 25, legendary: 10, ancient: 0 },
+    tierWeights: { common: 10, uncommon: 20, rare: 35, epic: 25, legendary: 10 },
     hiddenDoorProbability: 0.35,
   },
   legendary: {
     band: 'legendary', label: 'Legendary',
     itemCountMin: 5, itemCountMax: 8,
-    tierWeights: { garbage: 5, common: 10, rare: 20, epic: 35, legendary: 25, ancient: 5 },
+    tierWeights: { common: 5,  uncommon: 10, rare: 20, epic: 35, legendary: 30 },
     hiddenDoorProbability: 0.45,
   },
 };

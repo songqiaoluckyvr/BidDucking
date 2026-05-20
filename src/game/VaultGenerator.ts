@@ -36,7 +36,7 @@ function generateItems(rng: () => number, count: number, weights: Record<string,
 function generateHiddenItems(rng: () => number): VaultItem[] {
   const count = randomInt(rng, 1, 3);
   // Hidden door items skew toward rare/epic — not priced by house so they lean valuable
-  const hiddenWeights = { garbage: 5, common: 15, rare: 35, epic: 35, legendary: 10, ancient: 0 };
+  const hiddenWeights = { common: 5, uncommon: 15, rare: 35, epic: 35, legendary: 10 };
   return generateItems(rng, count, hiddenWeights);
 }
 

@@ -9,7 +9,6 @@ import { addBackground } from '@ui/sceneBackground';
 import { ASSETS } from '@assets/AssetKeys';
 
 const BALANCE_KEY = 'bidducking_balance';
-const W = 960;
 
 export class LobbyScene extends Phaser.Scene {
   private balance: number = GAME_CONFIG.startingBalance;
@@ -21,53 +20,76 @@ export class LobbyScene extends Phaser.Scene {
 
     addBackground(this);
 
-    // Center card
-    const cx = W / 2;
-    const card = this.add.graphics();
-    card.fillStyle(PAL.n.panel, PAL.cardAlpha).fillRoundedRect(cx - 280, 80, 560, 440, 14);
-    card.lineStyle(1, PAL.n.border, 1).strokeRoundedRect(cx - 280, 80, 560, 440, 14);
-    // Top cyan accent bar
-    card.fillStyle(PAL.n.cyan, 1).fillRect(cx - 280, 80, 560, 3);
+    // Card shifted left so duck has breathing room on the right
+    const cardCX = 415;
+    const cardY = 45; const cardW = 500; const cardH = 492;
 
-    // Title image — scaled to fit card width, positioned at top of card
-    this.add.image(cx, 158, ASSETS.TITLE)
+    // ui_border as full card (background texture + glowing frame)
+    this.add.image(cardCX, cardY + cardH / 2, ASSETS.UI_BORDER)
+      .setDisplaySize(cardW, cardH)
       .setOrigin(0.5)
-      .setDisplaySize(340, 200);
+      .setAlpha(0.85);
 
-    // Divider
-    this.add.graphics().lineStyle(1, PAL.n.border, 1).lineBetween(cx - 220, 226, cx + 220, 226);
+    // Semi-transparent dark overlay so text stays readable
+    this.add.graphics()
+      .fillStyle(0x04060f, 0.50)
+      .fillRoundedRect(cardCX - cardW / 2 + 12, cardY + 12, cardW - 24, cardH - 24, 12);
 
-    // Balance display
-    this.add.text(cx, 258, 'YOUR BALANCE', { fontSize: '11px', color: PAL.dim }).setOrigin(0.5);
-    const balanceText = this.add.text(cx, 288, `$${this.balance.toLocaleString()}`, {
-      fontSize: '34px', color: PAL.white, fontStyle: 'bold',
+    // Title — natural ratio 1536×439 → 3.5:1
+    this.add.image(cardCX, cardY + 100, ASSETS.TITLE)
+      .setOrigin(0.5)
+      .setDisplaySize(460, 132);
+
+    // YOUR STASH
+    this.add.text(cardCX, cardY + 210, 'YOUR STASH', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: '#9090b8',
     }).setOrigin(0.5);
 
-    // Ante line
-    this.add.text(cx, 326, `Entry ante: $${GAME_CONFIG.ante.toLocaleString()}`, {
-      fontSize: '14px', color: PAL.white,
+    // Balance — hero number
+    const balStr = `$${this.balance.toLocaleString()}`;
+    const balStyle = { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '48px' };
+
+    // Glow — outer (wide, soft)
+    this.add.text(cardCX, cardY + 258, balStr, {
+      ...balStyle, color: '#3355dd',
+      shadow: { offsetX: 0, offsetY: 0, color: '#3355dd', blur: 60, stroke: true, fill: true },
+    }).setOrigin(0.5).setAlpha(0.55);
+
+    // Glow — inner (tight, bright)
+    this.add.text(cardCX, cardY + 258, balStr, {
+      ...balStyle, color: '#aabbff',
+      shadow: { offsetX: 0, offsetY: 0, color: '#aabbff', blur: 22, stroke: true, fill: true },
+    }).setOrigin(0.5).setAlpha(0.75);
+
+    // Sharp white text on top
+    const balanceText = this.add.text(cardCX, cardY + 258, balStr, {
+      ...balStyle, color: '#ffffff',
     }).setOrigin(0.5);
 
-    // Enter button
-    const btnW = 300; const btnH = 52; const btnY = 390;
-    const btnG = this.add.graphics();
-    const drawBtn = (hov: boolean) => {
-      btnG.clear();
-      btnG.fillStyle(hov ? PAL.n.cyan : PAL.n.panelAlt, hov ? 1 : PAL.panelAltAlpha).fillRoundedRect(cx - btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
-      btnG.lineStyle(2, PAL.n.cyan, 1).strokeRoundedRect(cx - btnW / 2, btnY - btnH / 2, btnW, btnH, 8);
-    };
-    drawBtn(false);
-
-    const enterBtn = this.add.text(cx, btnY, 'ENTER THE VAULT', {
-      fontSize: '20px', color: PAL.white, fontStyle: 'bold',
+    // BUY-IN label (no background)
+    const pillY = cardY + 312;
+    this.add.text(cardCX, pillY, `BUY-IN: $${GAME_CONFIG.ante.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: '#9090b8',
     }).setOrigin(0.5);
 
-    const hit = this.add.rectangle(cx, btnY, btnW, btnH).setInteractive({ useHandCursor: true });
-    hit.on('pointerover', () => { drawBtn(true);  enterBtn.setColor('#05040f'); });
-    hit.on('pointerout',  () => { drawBtn(false); enterBtn.setColor(PAL.white); });
+    // CRACK THE VAULT — natural ratio 1526×337 → 4.53:1
+    const btnW = 450; const btnH = 100; const btnY = cardY + 370;
+    const btnImg = this.add.image(cardCX, btnY, ASSETS.MAIN_BTN)
+      .setDisplaySize(btnW, btnH)
+      .setOrigin(0.5);
+
+    this.add.text(cardCX, btnY, 'CRACK THE VAULT', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '22px', color: '#ffffff',
+    }).setOrigin(0.5);
+
+    const hit = this.add.rectangle(cardCX, btnY, btnW, btnH)
+      .setInteractive({ useHandCursor: true });
+
+    hit.on('pointerover', () => { btnImg.setTint(0xbbddff); });
+    hit.on('pointerout',  () => { btnImg.clearTint(); });
     hit.on('pointerdown', () => {
       if (this.balance < GAME_CONFIG.ante) {
-        balanceText.setText('Insufficient balance').setColor(PAL.red);
+        balanceText.setText('Not enough funds').setColor(PAL.red);
         return;
       }
       this.balance -= GAME_CONFIG.ante;
@@ -75,22 +97,25 @@ export class LobbyScene extends Phaser.Scene {
       this.startSession();
     });
 
-    // Footer
-    this.add.text(cx, 468, 'Jackpot · Hidden Door · 5 Rounds · Pre-Auction Intel', {
-      fontSize: '11px', color: PAL.muted,
+    // Footer — inside the card border
+    this.add.text(cardCX, cardY + cardH - 48, 'Loot  ◆  |  Secrets  🔒  |  5 Rounds  ✦  |  Buy Intel', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: '#6060a0',
     }).setOrigin(0.5);
 
     this.addDuck();
   }
 
   private addDuck() {
-    const duck = this.add.image(820, 430, ASSETS.DUCK_MASCOT);
-    const scale = Math.min(180 / duck.width, 300 / duck.height);
+    // Anchor to left edge of image so duck grows rightward from the card border.
+    // Card right edge: cardCX(415) + cardW/2(250) = 665
+    const duck = this.add.image(570, 390, ASSETS.DUCK_MASCOT)
+      .setOrigin(0, 0.5);
+    const scale = Math.min(420 / duck.width, 420 / duck.height);
     duck.setScale(scale);
   }
 
   private startSession() {
-    const available = this.balance; // ante already deducted before calling this
+    const available = this.balance;
     const seed = `${Date.now()}`;
     const rng = createRng(seedFromString(seed));
     const band = pickRandomBand(rng);

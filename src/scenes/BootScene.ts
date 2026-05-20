@@ -12,6 +12,14 @@ export class BootScene extends Phaser.Scene {
     // Real art — load when the file exists; BootScene generates placeholders for anything missing.
     this.load.image(ASSETS.BG_MAIN,      `${ASSET_BASE}backgrounds/background.png`);
     this.load.image(ASSETS.TITLE,        `${ASSET_BASE}ui/title.png`);
+    this.load.image(ASSETS.BID_COIN,     `${ASSET_BASE}ui/bid_coin.png`);
+    this.load.image(ASSETS.MAIN_BTN,       `${ASSET_BASE}ui/main_btn.png`);
+    this.load.image(ASSETS.UI_BORDER,      `${ASSET_BASE}ui/ui_border.png`);
+    this.load.image(ASSETS.UI_BTN_2,       `${ASSET_BASE}ui/ui_btn_2.png`);
+    this.load.image(ASSETS.EDGE_TITLE,     `${ASSET_BASE}ui/edge_title.png`);
+    this.load.image(ASSETS.ITEM_SWEEP_CARD,  `${ASSET_BASE}ui/item_sweep_card.png`);
+    this.load.image(ASSETS.RARITY_SCAN_CARD, `${ASSET_BASE}ui/Rarity_Scan_btn.png`);
+    this.load.image(ASSETS.SECRET_BOX_CARD,  `${ASSET_BASE}ui/secret_box_btn.png`);
     this.load.image(ASSETS.DUCK_MASCOT,  `${ASSET_BASE}characters/ducking_main.png`);
     this.load.spritesheet(ASSETS.DUCK_IDLE, `${ASSET_BASE}animations/ducking_idle.png`, {
       frameWidth: 307, frameHeight: 512,
