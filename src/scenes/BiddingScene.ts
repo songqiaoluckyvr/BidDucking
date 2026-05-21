@@ -7,6 +7,7 @@ import { ROUND_CONFIG } from '@config/RoundConfig';
 import type { RoundNumber } from '@config/RoundConfig';
 import { PAL } from '@ui/palette';
 import { ASSETS } from '@assets/AssetKeys';
+import { buildAudioToggle } from '@ui/audioToggle';
 
 interface BiddingData {
   session:    SessionManager;
@@ -1008,6 +1009,8 @@ export class BiddingScene extends Phaser.Scene {
       .on('pointerover',  () => { g.clear(); g.fillStyle(0x001a22, 0.80).fillCircle(bx, by, R); g.lineStyle(1, PAL.n.cyan, 1).strokeCircle(bx, by, R); })
       .on('pointerout',   () => { g.clear(); g.fillStyle(0x000000, 0.55).fillCircle(bx, by, R); g.lineStyle(1, PAL.n.cyan, 0.55).strokeCircle(bx, by, R); })
       .on('pointerdown',  () => { if (!this.tutorialOpen) this.showTutorial(() => {}); });
+
+    buildAudioToggle(this, bx + R * 2 + 8, by);
   }
 
   private setupSliderInput() {

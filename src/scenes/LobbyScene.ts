@@ -6,6 +6,7 @@ import { SessionManager } from '@game/SessionManager';
 import { createRng, seedFromString } from '@game/rng';
 import { buildIntelRegistry, buildRevealRegistry } from '../registry';
 import { addBackground } from '@ui/sceneBackground';
+import { buildAudioToggle } from '@ui/audioToggle';
 import { ASSETS } from '@assets/AssetKeys';
 
 const BALANCE_KEY = 'bidducking_balance';
@@ -43,6 +44,10 @@ export class LobbyScene extends Phaser.Scene {
     logoBg.fillStyle(0x000000, 0.55).fillRoundedRect(8 - PAD, 8 - PAD, viLogoW + PAD * 2, 40 + PAD * 2, 6);
     const viLogo = this.add.image(8, 8, ASSETS.VI_LOGO).setOrigin(0, 0).setDepth(30).setAlpha(0.92);
     viLogo.setScale(viLogoScale);
+
+    const logoRightX = 8 + viLogoW + 10;
+    const R = 14;
+    buildAudioToggle(this, logoRightX + R, 8 + R);
 
     // Title image
     this.add.image(W / 2, 70, ASSETS.TITLE).setOrigin(0.5).setDisplaySize(380, 108);
