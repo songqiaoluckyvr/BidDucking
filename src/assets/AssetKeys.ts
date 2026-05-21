@@ -4,6 +4,7 @@
 export const ASSETS = {
   // ── Backgrounds ───────────────────────────────────────────────────────────
   BG_MAIN:        'bg_main',        // images/backgrounds/background.png
+  BG_VIDEO:       'bg_video',       // video/background.mp4
 
   // ── Vault sprites (generated in BootScene until real art is ready) ────────
   VAULT_BODY:     'vault_body',     // images/vault/vault_body.png
@@ -18,9 +19,17 @@ export const ASSETS = {
   ITEM_LEGENDARY: 'item_legendary', // images/items/item_legendary.png
   ITEM_ANCIENT:   'item_ancient',   // images/items/item_ancient.png
 
+  // ── Item tier spritesheets (5 variants per sheet) ─────────────────────────
+  ITEM_SHEET_COMMON:    'item_sheet_common',    // images/items/common_items.png
+  ITEM_SHEET_UNCOMMON:  'item_sheet_uncommon',  // images/items/uncommon_items.png
+  ITEM_SHEET_RARE:      'item_sheet_rare',      // images/items/rare_items.png
+  ITEM_SHEET_EPIC:      'item_sheet_epic',      // images/items/epic_items.png
+  ITEM_SHEET_LEGENDARY: 'item_sheet_legendary', // images/items/legendary_items.png
+
   // ── UI ────────────────────────────────────────────────────────────────────
   TITLE:          'title',          // images/ui/title.png
   LOGO:           'logo',           // images/ui/logo.png
+  VI_LOGO:        'vi_logo',        // images/ui/VI_logo.png
   BID_COIN:       'bid_coin',       // images/ui/bid_coin.png
   MAIN_BTN:       'main_btn',       // images/ui/main_btn.png
   UI_BORDER:      'ui_border',      // images/ui/ui_border.png
@@ -31,6 +40,10 @@ export const ASSETS = {
   SECRET_BOX_CARD:  'secret_box_card',  // images/ui/secret_box_btn.png
   DUCK_MASCOT:    'duck_mascot',    // images/characters/ducking_main.png
   DUCK_IDLE:      'duck_idle',      // images/animations/ducking_idle.png  (5×2 spritesheet, 10 frames)
+  DUCK_STAND:     'duck_stand',     // images/characters/ducking_stand.png
+  DUCK_THINK:     'duck_think',     // images/characters/ducking_think.png
+  DUCK_WIN:       'duck_win',       // images/characters/ducking_win.png
+  DUCK_LOSE:      'duck_lose',      // images/characters/ducking_lose.png
 
   // ── Audio — SFX ──────────────────────────────────────────────────────────
   SFX_BID:        'sfx_bid',        // audio/sfx/bid_submit.mp3

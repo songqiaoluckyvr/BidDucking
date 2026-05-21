@@ -6,14 +6,16 @@ export function calculateOutcome(
   bid: number,
   round: RoundNumber,
   isJackpot: boolean,
-  ante: number,
+  _ante: number,
   intelCost: number,
 ): SessionOutcome {
   const surfaceValue = vault.houseValue;
   const hiddenDoorValue = vault.hasHiddenDoor ? vault.hiddenDoorValue : 0;
   const grossReturn = surfaceValue + hiddenDoorValue;
   const jackpotBonus = isJackpot ? vault.houseValue * ROUND_CONFIG[round].jackpotMultiplier : 0;
-  const netProfit = grossReturn - bid - ante - intelCost + jackpotBonus;
+  // Ante was already deducted upfront as the entry deposit — it counts toward the
+  // bid price, so we don't deduct it again here.
+  const netProfit = grossReturn - bid - intelCost + jackpotBonus;
 
   return {
     bidAccepted: true,
@@ -28,7 +30,9 @@ export function calculateOutcome(
   };
 }
 
-export function calculateLostOutcome(ante: number, intelCost: number): SessionOutcome {
+export function calculateLostOutcome(_ante: number, intelCost: number): SessionOutcome {
+  // Ante is already gone from the player's balance (deducted on session start).
+  // Only intel cost is an additional loss on top of that.
   return {
     bidAccepted: false,
     bidAmount: 0,
@@ -37,7 +41,7 @@ export function calculateLostOutcome(ante: number, intelCost: number): SessionOu
     hiddenDoorValue: 0,
     jackpotBonus: 0,
     grossReturn: 0,
-    netProfit: -(ante + intelCost),
+    netProfit: -intelCost,
     isJackpot: false,
   };
 }

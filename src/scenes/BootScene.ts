@@ -11,7 +11,16 @@ export class BootScene extends Phaser.Scene {
   preload() {
     // Real art — load when the file exists; BootScene generates placeholders for anything missing.
     this.load.image(ASSETS.BG_MAIN,      `${ASSET_BASE}backgrounds/background.png`);
+    this.load.video(ASSETS.BG_VIDEO,     'assets/video/background.mp4');
+
+    // Item tier spritesheets — 5 variants per row, all 1536×1024 (frameWidth = 1536/5 = 307)
+    this.load.spritesheet(ASSETS.ITEM_SHEET_COMMON,    `${ASSET_BASE}items/common_items.png`,    { frameWidth: 307, frameHeight: 1024 });
+    this.load.spritesheet(ASSETS.ITEM_SHEET_UNCOMMON,  `${ASSET_BASE}items/uncommon_items.png`,  { frameWidth: 307, frameHeight: 1024 });
+    this.load.spritesheet(ASSETS.ITEM_SHEET_RARE,      `${ASSET_BASE}items/rare_items.png`,      { frameWidth: 307, frameHeight: 1024 });
+    this.load.spritesheet(ASSETS.ITEM_SHEET_EPIC,      `${ASSET_BASE}items/epic_items.png`,      { frameWidth: 307, frameHeight: 1024 });
+    this.load.spritesheet(ASSETS.ITEM_SHEET_LEGENDARY, `${ASSET_BASE}items/legendary_items.png`, { frameWidth: 307, frameHeight: 1024 });
     this.load.image(ASSETS.TITLE,        `${ASSET_BASE}ui/title.png`);
+    this.load.image(ASSETS.VI_LOGO,      `${ASSET_BASE}ui/VI_logo.png`);
     this.load.image(ASSETS.BID_COIN,     `${ASSET_BASE}ui/bid_coin.png`);
     this.load.image(ASSETS.MAIN_BTN,       `${ASSET_BASE}ui/main_btn.png`);
     this.load.image(ASSETS.UI_BORDER,      `${ASSET_BASE}ui/ui_border.png`);
@@ -21,6 +30,10 @@ export class BootScene extends Phaser.Scene {
     this.load.image(ASSETS.RARITY_SCAN_CARD, `${ASSET_BASE}ui/Rarity_Scan_btn.png`);
     this.load.image(ASSETS.SECRET_BOX_CARD,  `${ASSET_BASE}ui/secret_box_btn.png`);
     this.load.image(ASSETS.DUCK_MASCOT,  `${ASSET_BASE}characters/ducking_main.png`);
+    this.load.image(ASSETS.DUCK_STAND,   `${ASSET_BASE}characters/ducking_stand.png`);
+    this.load.image(ASSETS.DUCK_THINK,   `${ASSET_BASE}characters/ducking_think.png`);
+    this.load.image(ASSETS.DUCK_WIN,     `${ASSET_BASE}characters/ducking_win.png`);
+    this.load.image(ASSETS.DUCK_LOSE,    `${ASSET_BASE}characters/ducking_lose.png`);
     this.load.spritesheet(ASSETS.DUCK_IDLE, `${ASSET_BASE}animations/ducking_idle.png`, {
       frameWidth: 307, frameHeight: 512,
     });

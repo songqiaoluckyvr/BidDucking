@@ -20,6 +20,9 @@ export class LobbyScene extends Phaser.Scene {
 
     addBackground(this);
 
+    const viLogo = this.add.image(8, 8, ASSETS.VI_LOGO).setOrigin(0, 0).setDepth(30).setAlpha(0.85);
+    viLogo.setScale(40 / viLogo.height);
+
     // Card shifted left so duck has breathing room on the right
     const cardCX = 415;
     const cardY = 45; const cardW = 500; const cardH = 492;

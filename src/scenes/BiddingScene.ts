@@ -4,7 +4,6 @@ import type { IntelResult, RevealResult, SessionOutcome, VaultItem } from '@game
 import { generateVault, pickRandomBand } from '@game/VaultGenerator';
 import { createRng, seedFromString } from '@game/rng';
 import { buildIntelRegistry, buildRevealRegistry } from '../registry';
-import { ROUND_CONFIG } from '@config/RoundConfig';
 import { GAME_CONFIG } from '@config/GameConfig';
 import { PAL } from '@ui/palette';
 import { addBackground } from '@ui/sceneBackground';
@@ -37,10 +36,10 @@ const SLIDER_MAX = 200_000;
 const SLIDER_PAD = 24;
 
 // ── Vault loot grid ──────────────────────────────────────────────────────────
-const GSTEP  = 33;          // grid step (cell + gap)
-const GCELL  = 30;          // visible cell size
-const GCOLS  = 8;
-const GROW_M = 13;          // main vault rows
+const GSTEP  = 40;          // grid step (cell + gap)
+const GCELL  = 37;          // visible cell size
+const GCOLS  = 6;
+const GROW_M = 10;          // main vault rows
 const GROW_S = 4;           // secret vault rows
 
 // Left edge of grid, centred inside the right panel
@@ -91,8 +90,6 @@ export class BiddingScene extends Phaser.Scene {
   private bidSectionObjects: Phaser.GameObjects.GameObject[] = [];
 
   // Dynamic UI
-  private roundLabel!:     Phaser.GameObjects.Text;
-  private roundName!:      Phaser.GameObjects.Text;
   private totalValueText!: Phaser.GameObjects.Text;
   private intelLineText!:  Phaser.GameObjects.Text;
   private bidAmountText!:  Phaser.GameObjects.Text;
@@ -100,7 +97,15 @@ export class BiddingScene extends Phaser.Scene {
   private sliderFillGfx!:  Phaser.GameObjects.Graphics;
   private sliderThumb!:    Phaser.GameObjects.Image;
   private infoLines:       Phaser.GameObjects.Text[] = [];
-  private bidHistoryTexts: Phaser.GameObjects.Text[] = [];
+  private duckImage!:      Phaser.GameObjects.Image;
+  private isProcessing     = false;
+
+  // Bid scale
+  private bidScaleGfx!:    Phaser.GameObjects.Graphics;
+  private bidHistoryData:  Array<{ amount: number; dir: 'tooHigh' | 'tooLow' }> = [];
+  private scaleLoBound     = SLIDER_MIN;
+  private scaleHiBound     = 0;
+  private scaleLabelTexts: Phaser.GameObjects.Text[] = [];
 
   // Vault grid
   private mainGridItems:   PlacedItem[] = [];
@@ -114,11 +119,15 @@ export class BiddingScene extends Phaser.Scene {
     this.bidAmount         = 0;
     this.sliderThumbX      = 0;
     this.isDragging        = false;
-    this.bidHistoryTexts   = [];
     this.infoLines         = [];
     this.bidSectionObjects = [];
-    this.mainGridItems   = [];
-    this.secretGridItems = [];
+    this.isProcessing      = false;
+    this.mainGridItems     = [];
+    this.secretGridItems   = [];
+    this.bidHistoryData    = [];
+    this.scaleLoBound      = SLIDER_MIN;
+    this.scaleHiBound      = 0;
+    this.scaleLabelTexts   = [];
 
     this.playerBalance = parseInt(
       localStorage.getItem(BALANCE_KEY) ?? String(GAME_CONFIG.startingBalance), 10,
@@ -127,6 +136,8 @@ export class BiddingScene extends Phaser.Scene {
 
     addBackground(this);
     this.drawPanels();
+    const viLogo = this.add.image(8, 8, ASSETS.VI_LOGO).setOrigin(0, 0).setDepth(30).setAlpha(0.85);
+    viLogo.setScale(40 / viLogo.height);
     this.buildLeftPanel();
     this.buildCenterPanel();
     this.buildRightPanel();
@@ -163,35 +174,93 @@ export class BiddingScene extends Phaser.Scene {
   // ─── Left panel ───────────────────────────────────────────────────────────
 
   private buildLeftPanel() {
-    const cx    = LEFT_W / 2;
-    const state = this.session.getSessionState();
-    const round = state.currentRound;
+    const cx = LEFT_W / 2;
 
-    this.roundLabel = this.add.text(cx, 16, `ROUND ${round} OF 5`, {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
-    }).setOrigin(0.5);
+    this.add.text(cx, 10, 'BID SCALE', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_ACTIVE }).setOrigin(0.5);
 
-    this.roundName = this.add.text(cx, 34, ROUND_CONFIG[round].name.toUpperCase(), {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '12px', color: C_GREY,
-    }).setOrigin(0.5);
-
-    this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 50, LEFT_W - 8, 50);
-
-    this.add.text(cx, 64, 'BID LOG', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_ACTIVE }).setOrigin(0.5);
-
-    for (let i = 0; i < 5; i++) {
-      const t = this.add.text(cx, 82 + i * 24, '', {
-        fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: C_GREY,
-      }).setOrigin(0.5);
-      this.bidHistoryTexts.push(t);
-    }
+    this.bidScaleGfx = this.add.graphics();
+    this.redrawBidScale();
 
     this.add.graphics().lineStyle(1, PAL.n.border, 0.4).lineBetween(8, 204, LEFT_W - 8, 204);
 
     const HISTORY_BOTTOM = 210;
-    const availH = H - HISTORY_BOTTOM;
-    const duck = this.add.image(cx, HISTORY_BOTTOM + availH / 2, ASSETS.DUCK_MASCOT);
-    duck.setScale(Math.min(LEFT_W / duck.width, availH / duck.height));
+    const BANKROLL_H     = 32;
+    const availH = H - HISTORY_BOTTOM - BANKROLL_H;
+    this.duckImage = this.add.image(cx, HISTORY_BOTTOM + availH / 2, ASSETS.DUCK_STAND);
+    this.duckImage.setScale(Math.min(LEFT_W / this.duckImage.width, availH / this.duckImage.height));
+
+    this.add.text(cx, H - BANKROLL_H / 2 - 2, `BANK  $${this.playerBalance.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: C_GREY,
+    }).setOrigin(0.5);
+  }
+
+  private setDuckState(state: 'stand' | 'think' | 'win' | 'lose') {
+    const KEY_MAP = {
+      stand: ASSETS.DUCK_STAND,
+      think: ASSETS.DUCK_THINK,
+      win:   ASSETS.DUCK_WIN,
+      lose:  ASSETS.DUCK_LOSE,
+    };
+    const HISTORY_BOTTOM = 210;
+    const BANKROLL_H     = 32;
+    const availH = H - HISTORY_BOTTOM - BANKROLL_H;
+    const cx = LEFT_W / 2;
+    this.duckImage.setTexture(KEY_MAP[state]);
+    this.duckImage.setPosition(cx, HISTORY_BOTTOM + availH / 2);
+    this.duckImage.setScale(Math.min(LEFT_W / this.duckImage.width, availH / this.duckImage.height));
+  }
+
+  private redrawBidScale() {
+    this.bidScaleGfx.clear();
+    this.scaleLabelTexts.forEach(t => t.destroy());
+    this.scaleLabelTexts = [];
+
+    const g    = this.bidScaleGfx;
+    const PAD  = 14;
+    const xL   = PAD;
+    const xR   = LEFT_W - PAD;
+    const TW   = xR - xL;
+    const barY = 120;
+    const barH = 8;
+
+    const logMin = Math.log(SLIDER_MIN);
+    const logMax = Math.log(this.effectiveMax);
+    const toX = (v: number) =>
+      xL + ((Math.log(Phaser.Math.Clamp(v, SLIDER_MIN, this.effectiveMax)) - logMin) / (logMax - logMin)) * TW;
+
+    const loX  = toX(this.scaleLoBound);
+    const hiVal = this.scaleHiBound > 0 ? this.scaleHiBound : this.effectiveMax;
+    const hiX  = toX(hiVal);
+
+    // Track
+    g.fillStyle(0x14142a, 1).fillRoundedRect(xL, barY, TW, barH, 3);
+    g.lineStyle(1, 0x2a2a4a, 1).strokeRoundedRect(xL, barY, TW, barH, 3);
+
+    // Green accepted zone
+    g.fillStyle(PAL.n.green, 0.22).fillRoundedRect(loX, barY, hiX - loX, barH, 3);
+    g.lineStyle(1, PAL.n.green, 0.55).strokeRoundedRect(loX, barY, hiX - loX, barH, 3);
+
+    // MIN marker (blue) — label + tag above bar
+    g.lineStyle(2, 0x44aaee, 0.9).lineBetween(loX, barY - 16, loX, barY + barH + 4);
+    g.fillStyle(0x44aaee, 1).fillTriangle(loX, barY - 20, loX - 4, barY - 12, loX + 4, barY - 12);
+    const loValT = this.add.text(loX, barY - 22, `$${this.scaleLoBound.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '10px', color: '#44aaee',
+    }).setOrigin(0.5, 1);
+    const loTagT = this.add.text(loX, barY + barH + 6, 'MIN', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '9px', color: '#44aaee',
+    }).setOrigin(0.5, 0).setAlpha(0.7);
+    this.scaleLabelTexts.push(loValT, loTagT);
+
+    // MAX marker (red) — label + tag above bar
+    g.lineStyle(2, PAL.n.red, 0.9).lineBetween(hiX, barY - 16, hiX, barY + barH + 4);
+    g.fillStyle(PAL.n.red, 1).fillTriangle(hiX, barY - 20, hiX - 4, barY - 12, hiX + 4, barY - 12);
+    const hiValT = this.add.text(hiX, barY - 22, `$${hiVal.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '10px', color: PAL.red,
+    }).setOrigin(0.5, 1);
+    const hiTagT = this.add.text(hiX, barY + barH + 6, 'MAX', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '9px', color: PAL.red,
+    }).setOrigin(0.5, 0).setAlpha(0.7);
+    this.scaleLabelTexts.push(hiValT, hiTagT);
   }
 
   // ─── Center panel ─────────────────────────────────────────────────────────
@@ -280,6 +349,7 @@ export class BiddingScene extends Phaser.Scene {
     ).setInteractive({ useHandCursor: true })
       .on('pointerdown', (ptr: Phaser.Input.Pointer) => {
         this.isDragging = true;
+        this.setDuckState('think');
         this.updateSliderFromX(ptr.x);
       });
     this.bidSectionObjects.push(hitZone);
@@ -562,7 +632,10 @@ export class BiddingScene extends Phaser.Scene {
     this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
       if (this.isDragging) this.updateSliderFromX(ptr.x);
     });
-    this.input.on('pointerup', () => { this.isDragging = false; });
+    this.input.on('pointerup', () => {
+      if (this.isDragging) this.setDuckState('stand');
+      this.isDragging = false;
+    });
   }
 
   private updateSliderFromX(x: number) {
@@ -593,59 +666,84 @@ export class BiddingScene extends Phaser.Scene {
       this.feedbackText.setText("Can't bet what you don't have");
       return;
     }
+    if (this.isProcessing) return;
+    this.isProcessing = true;
 
-    const result = this.session.submitBid(this.bidAmount);
+    // Suspense delay — pulsing "PROCESSING..." before revealing the result
+    const procText = this.add.text(MID_CX, 354, 'PROCESSING...', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '22px',
+      color: '#8888bb', letterSpacing: 6,
+    }).setOrigin(0.5).setDepth(25);
+    this.tweens.add({ targets: procText, alpha: 0.15, duration: 380, yoyo: true, repeat: -1 });
+
+    this.time.delayedCall(1100, () => {
+      this.tweens.killTweensOf(procText);
+      procText.destroy();
+      this.isProcessing = false;
+      this.resolveBid();
+    });
+  }
+
+  private resolveBid() {
+    const playedRound = this.session.getCurrentRound();
+    const result      = this.session.submitBid(this.bidAmount);
 
     if (result.accepted) {
       this.hideBidSection();
       this.feedbackText.setText('');
+      this.setDuckState('win');
       this.showBidPopup('accepted', () => this.startReveal());
       return;
     }
 
-    const type = result.bidDirection === 'tooHigh' ? 'tooHigh' : 'tooLow';
+    const type     = result.bidDirection === 'tooHigh' ? 'tooHigh' : 'tooLow';
+    const newRound = this.session.getCurrentRound();
     this.feedbackText.setText('');
-    this.showBidPopup(type);
+    this.setDuckState('lose');
+    this.time.delayedCall(1200, () => this.setDuckState('stand'));
 
-    const round   = this.session.getSessionState().currentRound - 1;
-    const histIdx = round - 1;
-    if (histIdx >= 0 && histIdx < this.bidHistoryTexts.length) {
-      const arrow = result.bidDirection === 'tooHigh' ? '▲' : '▼';
-      this.bidHistoryTexts[histIdx]
-        .setText(`R${round}  $${this.bidAmount.toLocaleString()}  ${arrow}`)
-        .setColor(C_GREY);
+    // After the direction popup fades: either reveal (session over) or round-entry status
+    const afterDirection = result.sessionComplete
+      ? () => { this.hideBidSection(); this.startReveal(); }
+      : () => { this.showBidPopup(`round${newRound}`); };
+    this.showBidPopup(type, afterDirection);
+
+    // Update bid scale
+    const dir = result.bidDirection === 'tooHigh' ? 'tooHigh' : 'tooLow';
+    this.bidHistoryData.push({ amount: this.bidAmount, dir });
+    if (dir === 'tooLow') {
+      this.scaleLoBound = Math.max(this.scaleLoBound, this.bidAmount);
+    } else {
+      this.scaleHiBound = this.scaleHiBound > 0
+        ? Math.min(this.scaleHiBound, this.bidAmount)
+        : this.bidAmount;
     }
+    this.redrawBidScale();
 
     this.sliderThumbX = this.sliderTrackLeft;
     this.bidAmount    = 0;
     this.redrawSlider();
     this.bidAmountText.setText('—');
 
-    const newRound = this.session.getCurrentRound();
-    this.roundLabel.setText(`ROUND ${newRound} OF 5`);
-    this.roundName.setText(ROUND_CONFIG[newRound].name.toUpperCase());
 
     if (result.revealResult) this.appendReveal(result.revealResult);
-
-    if (result.sessionComplete) {
-      this.time.delayedCall(1400, () => {
-        this.hideBidSection();
-        this.showBidPopup('finalRound', () => this.startReveal());
-      });
-    }
   }
 
-  private showBidPopup(type: 'accepted' | 'tooHigh' | 'tooLow' | 'finalRound', onDone?: () => void) {
-    const cfg: Record<string, { text: string; color: string; flashCol: number; holdMs: number }> = {
-      accepted:   { text: 'DEAL SEALED!',    color: PAL.green, flashCol: PAL.n.green, holdMs: 900  },
-      tooHigh:    { text: '▲  OVERSHOT',     color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
-      tooLow:     { text: '▼  THINK BIGGER', color: PAL.red,   flashCol: PAL.n.red,   holdMs: 600  },
-      finalRound: { text: 'LAST SHOT!',      color: PAL.gold,  flashCol: PAL.n.gold,  holdMs: 1000 },
+  private showBidPopup(type: string, onDone?: () => void) {
+    const cfg: Record<string, { text: string; color: string; flashCol: number; holdMs: number; flashAlpha?: number; flashRep?: number }> = {
+      accepted: { text: 'DEAL SEALED!',             color: PAL.green,  flashCol: PAL.n.green, holdMs: 900,  flashAlpha: 0.30, flashRep: 2 },
+      tooHigh:  { text: '▲  OVERSHOT',              color: PAL.red,    flashCol: PAL.n.red,   holdMs: 600,  flashAlpha: 0.18, flashRep: 1 },
+      tooLow:   { text: '▼  THINK BIGGER',          color: PAL.red,    flashCol: PAL.n.red,   holdMs: 600,  flashAlpha: 0.18, flashRep: 1 },
+      round2:   { text: 'ROUND 2  ·  REGROUP',      color: PAL.gold,   flashCol: PAL.n.gold,  holdMs: 900,  flashAlpha: 0.20, flashRep: 1 },
+      round3:   { text: 'ROUND 3  ·  STAY SHARP',   color: PAL.gold,   flashCol: PAL.n.gold,  holdMs: 900,  flashAlpha: 0.20, flashRep: 1 },
+      round4:   { text: 'ROUND 4  ·  PRESSURE ON',  color: '#ff9944',  flashCol: 0xff9944,    holdMs: 900,  flashAlpha: 0.22, flashRep: 1 },
+      round5:   { text: '⚠  LAST SHOT!',            color: PAL.red,    flashCol: PAL.n.red,   holdMs: 1100, flashAlpha: 0.30, flashRep: 2 },
     };
-    const { text, color, flashCol, holdMs } = cfg[type];
+    const entry = cfg[type];
+    if (!entry) return;
+    const { text, color, flashCol, holdMs, flashAlpha = 0.18, flashRep = 1 } = entry;
 
-    this.screenFlash(flashCol, type === 'accepted' || type === 'finalRound' ? 0.30 : 0.18,
-      type === 'accepted' ? 2 : 1);
+    this.screenFlash(flashCol, flashAlpha, flashRep);
 
     // Dark pill behind text
     const pill = this.add.graphics().setDepth(24);
@@ -704,10 +802,10 @@ export class BiddingScene extends Phaser.Scene {
     const state   = this.session.getSessionState();
     const vault   = state.vault;
 
-    this.add.text(MID_CX, 322, 'LOOT HAUL', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: C_ACTIVE }).setOrigin(0.5);
+    this.add.text(MID_CX, 322, 'YOUR BID', { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: C_GREY }).setOrigin(0.5);
 
-    const runningText = this.add.text(MID_CX, 362, '$0', {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '36px', color: C_ACTIVE,
+    const bidText = this.add.text(MID_CX, 362, `$${outcome.bidAmount.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '36px', color: C_GREY,
     }).setOrigin(0.5).setAlpha(0);
 
     const netLabel = this.add.text(MID_CX, 420, '', {
@@ -720,6 +818,8 @@ export class BiddingScene extends Phaser.Scene {
 
     // Clear intel effect outlines — items will reveal their true colours
     this.gridEffectGfx.clear();
+
+    this.setDuckState('think');
 
     // ── Suspense buildup ──────────────────────────────────────────────────────
     const suspense = this.add.text(MID_CX, H / 2 - 10, 'CRACKING THE SAFE', {
@@ -743,10 +843,10 @@ export class BiddingScene extends Phaser.Scene {
         targets: suspense, alpha: 0, duration: 200,
         onComplete: () => suspense.destroy(),
       });
-      this.tweens.add({ targets: runningText, alpha: 1, duration: 200 });
+      this.tweens.add({ targets: bidText, alpha: 1, duration: 200 });
       this.playOpenSequence(
         vault.surfaceItems, vault.hasHiddenDoor, vault.hiddenItems,
-        outcome, runningText, netLabel, netResult,
+        outcome, netLabel, netResult,
       );
     });
   }
@@ -756,20 +856,20 @@ export class BiddingScene extends Phaser.Scene {
     hasHiddenDoor: boolean,
     hiddenItems: VaultItem[],
     outcome: SessionOutcome,
-    runningText: Phaser.GameObjects.Text,
     netLabel: Phaser.GameObjects.Text,
     netResult: Phaser.GameObjects.Text,
   ) {
     const baseDelay = 400;
-    const step      = 320;
+    const step      = 416; // 320 × 1.3
     let   runTotal  = 0;
 
     surfaceItems.forEach((item, i) => {
       this.time.delayedCall(baseDelay + i * step, () => {
-        runTotal += item.value;
         const placed = this.mainGridItems[i];
         if (placed) this.revealGridItem(placed);
-        this.countUp(runningText, runTotal - item.value, runTotal, 280, '$');
+        const prev = runTotal;
+        runTotal += item.value;
+        this.countUp(this.totalValueText, prev, runTotal, 300, '$');
       });
     });
 
@@ -782,10 +882,11 @@ export class BiddingScene extends Phaser.Scene {
       });
       hiddenItems.forEach((item, i) => {
         this.time.delayedCall(afterSurface + 700 + i * step, () => {
-          runTotal += item.value;
           const placed = this.secretGridItems[i];
           if (placed) this.revealGridItem(placed);
-          this.countUp(runningText, runTotal - item.value, runTotal, 280, '$');
+          const prev = runTotal;
+          runTotal += item.value;
+          this.countUp(this.totalValueText, prev, runTotal, 300, '$');
         });
       });
     }
@@ -793,10 +894,6 @@ export class BiddingScene extends Phaser.Scene {
     const afterAll = hasHiddenDoor
       ? afterSurface + 700 + hiddenItems.length * step
       : afterSurface;
-
-    this.time.delayedCall(afterAll, () => {
-      this.countUp(this.totalValueText, 0, outcome.grossReturn, 800, '$');
-    });
 
     if (outcome.isJackpot) {
       this.time.delayedCall(afterAll + 200, () => this.flashJackpot(outcome.jackpotBonus));
@@ -812,23 +909,50 @@ export class BiddingScene extends Phaser.Scene {
 
   private revealGridItem(placed: PlacedItem) {
     const { x, y, pw, ph } = this.placedRect(placed);
-    const tileCol = Phaser.Display.Color.HexStringToColor(placed.item.tierDef.frameColor).color;
 
-    // Tile background + border
+    // Dark tile bg (no tier colour)
     const tileGfx = this.add.graphics().setDepth(4).setAlpha(0);
-    tileGfx.fillStyle(tileCol, 0.18).fillRect(x, y, pw, ph);
-    tileGfx.lineStyle(2, tileCol, 1).strokeRect(x, y, pw, ph);
+    tileGfx.fillStyle(0x050510, 0.85).fillRect(x, y, pw, ph);
     if (placed.isHidden) {
-      tileGfx.lineStyle(1, 0xffd700, 0.5).strokeRect(x + 2, y + 2, pw - 4, ph - 4);
+      tileGfx.lineStyle(1, 0xffd700, 0.5).strokeRect(x + 1, y + 1, pw - 2, ph - 2);
     }
     this.tweens.add({ targets: tileGfx, alpha: 1, duration: 220, ease: 'Power2' });
 
-    // Value text centred in tile
-    const maxFontSize = ph >= 48 ? 10 : 8;
-    const price = this.add.text(x + pw / 2, y + ph / 2, `$${placed.item.value.toLocaleString()}`, {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: `${maxFontSize}px`, color: placed.item.tierDef.frameColor,
-      align: 'center', wordWrap: { width: pw - 4 },
-    }).setOrigin(0.5).setAlpha(0).setDepth(5);
+    // Item sprite — pick a deterministic variant (0-4) from the tier sheet
+    const TIER_SHEET: Record<string, string> = {
+      common:    ASSETS.ITEM_SHEET_COMMON,
+      uncommon:  ASSETS.ITEM_SHEET_UNCOMMON,
+      rare:      ASSETS.ITEM_SHEET_RARE,
+      epic:      ASSETS.ITEM_SHEET_EPIC,
+      legendary: ASSETS.ITEM_SHEET_LEGENDARY,
+    };
+    // Frame width = 1536 / 5 = 307 for all tiers
+    const FRAME_W = 307;
+    const frame = placed.item.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 5;
+    const tier  = placed.item.tier;
+    // Scale to 115% of cell width — fills cell with slight border bleed, mask clips overflow.
+    // Per-tier origin y: tuned to where each sheet's icons sit within the 1024px frame.
+    const TIER_ORIGIN_Y: Record<string, number> = {
+      common:    0.50,
+      uncommon:  0.45,
+      rare:      0.45,
+      epic:      0.45,
+      legendary: 0.45,
+    };
+    const imgScale = (pw / FRAME_W) * 1.15;
+    const itemImg = this.add.image(x + pw / 2, y + ph / 2, TIER_SHEET[tier], frame)
+      .setScale(imgScale)
+      .setOrigin(0.5, TIER_ORIGIN_Y[tier] ?? 0.38).setDepth(4).setAlpha(0);
+    const maskGfx = this.add.graphics().fillStyle(0xffffff).fillRect(x, y, pw, ph);
+    itemImg.setMask(maskGfx.createGeometryMask());
+    this.tweens.add({ targets: itemImg, alpha: 1, duration: 220, ease: 'Power2' });
+
+    // Value text at bottom of tile
+    const fontSize = ph >= 70 ? 13 : 10;
+    const price = this.add.text(x + pw / 2, y + ph - 2, `$${placed.item.value.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: `${fontSize}px`,
+      color: '#ffffff', stroke: '#000000', strokeThickness: 2, align: 'center',
+    }).setOrigin(0.5, 1).setAlpha(0).setDepth(5);
     this.tweens.add({ targets: price, alpha: 1, duration: 200, delay: 140 });
   }
 
@@ -872,12 +996,16 @@ export class BiddingScene extends Phaser.Scene {
     const newBalance  = prevBalance + outcome.netProfit;
     localStorage.setItem(BALANCE_KEY, String(newBalance));
 
-    const profit = outcome.netProfit >= 0;
+    // Display reflects the true net change from the player's pre-ante balance,
+    // since the ante was already deducted from localStorage before the session started.
+    const displayProfit = outcome.netProfit - GAME_CONFIG.ante;
+    const profit = displayProfit >= 0;
     const sign   = profit ? '+' : '-';
-    const abs    = Math.abs(outcome.netProfit);
+    const abs    = Math.abs(displayProfit);
 
+    this.setDuckState(profit ? 'win' : 'lose');
     netLabel.setText('YOUR CUT').setAlpha(1);
-    netResult.setText(`${sign}$0`).setAlpha(1);
+    netResult.setColor(profit ? PAL.green : PAL.red).setText(`${sign}$0`).setAlpha(1);
     this.countUp(netResult, 0, abs, 900, `${sign}$`);
 
     this.time.delayedCall(1100, () => {
