@@ -5,9 +5,13 @@ import { PAL } from './palette';
 const W = 960;
 const H = 600;
 
-export function addBackground(scene: Phaser.Scene): void {
-  if (scene.cache.video.exists(ASSETS.BG_VIDEO)) {
-    const vid = scene.add.video(W / 2, H / 2, ASSETS.BG_VIDEO).setDepth(-1);
+export function addBackground(
+  scene: Phaser.Scene,
+  videoKey: string = ASSETS.BG_VIDEO,
+  imageKey: string = ASSETS.BG_MAIN,
+): void {
+  if (scene.cache.video.exists(videoKey)) {
+    const vid = scene.add.video(W / 2, H / 2, videoKey).setDepth(-1);
     vid.setMute(true);
     vid.play(true);
     vid.once('play', () => {
@@ -21,8 +25,9 @@ export function addBackground(scene: Phaser.Scene): void {
   }
 
   // Fallback: static image or solid colour + grid
-  if (scene.textures.exists(ASSETS.BG_MAIN)) {
-    scene.add.image(W / 2, H / 2, ASSETS.BG_MAIN).setDisplaySize(W, H);
+  if (scene.textures.exists(imageKey)) {
+    const img = scene.add.image(W / 2, H / 2, imageKey);
+    img.setScale(Math.max(W / img.width, H / img.height));
   } else {
     scene.add.rectangle(W / 2, H / 2, W, H, PAL.bg);
     const g = scene.add.graphics();

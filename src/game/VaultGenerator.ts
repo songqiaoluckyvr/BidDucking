@@ -1,5 +1,6 @@
 import { TIER_CONFIG, type ItemTier } from '@config/TierConfig';
 import { RARITY_BAND_CONFIG, GAME_CONFIG, type RarityBand } from '@config/GameConfig';
+import type { VaultTierDef } from '@config/VaultTierConfig';
 import { createRng, randomInt, seedFromString } from './rng';
 import type { Vault, VaultItem } from './types';
 
@@ -40,16 +41,31 @@ function generateHiddenItems(rng: () => number): VaultItem[] {
   return generateItems(rng, count, hiddenWeights);
 }
 
-export function generateVault(band: RarityBand, seed?: string, maxHouseValue?: number): Vault {
-  const MAX_ATTEMPTS = 12;
+export function generateVault(
+  band: RarityBand,
+  seed?: string,
+  maxHouseValue?: number,
+  minHouseValue?: number,
+): Vault {
+  const MAX_ATTEMPTS = 16;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    // Vary the seed on retries so we don't get the same vault each time
     const resolvedSeed = `${seed ?? `vault_${Date.now()}`}_a${attempt}`;
     const vault = _generateVaultOnce(band, resolvedSeed);
-    if (maxHouseValue === undefined || vault.houseValue <= maxHouseValue) return vault;
+    const underMax = maxHouseValue === undefined || vault.houseValue <= maxHouseValue;
+    const overMin  = minHouseValue === undefined || vault.houseValue >= minHouseValue;
+    if (underMax && overMin) return vault;
   }
-  // Fallback: scrap band is always cheap enough
   return _generateVaultOnce('scrap', `${seed ?? Date.now()}_fallback`);
+}
+
+export function pickBandForTier(rng: () => number, tierDef: VaultTierDef): RarityBand {
+  const total = tierDef.bandWeights.reduce((a, b) => a + b, 0);
+  let roll = rng() * total;
+  for (let i = 0; i < tierDef.bands.length; i++) {
+    roll -= tierDef.bandWeights[i];
+    if (roll <= 0) return tierDef.bands[i];
+  }
+  return tierDef.bands[tierDef.bands.length - 1];
 }
 
 function _generateVaultOnce(band: RarityBand, seed: string): Vault {

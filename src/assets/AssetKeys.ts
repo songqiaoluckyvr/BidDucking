@@ -5,11 +5,17 @@ export const ASSETS = {
   // ── Backgrounds ───────────────────────────────────────────────────────────
   BG_MAIN:        'bg_main',        // images/backgrounds/background.png
   BG_VIDEO:       'bg_video',       // video/background.mp4
+  BG_LOBBY_IMG:   'bg_lobby_img',   // images/backgrounds/background_1.png
+  BG_LOBBY_VIDEO: 'bg_lobby_video', // video/background_loop_1.mp4
+  BG_GAME_IMG:    'bg_game_img',    // images/backgrounds/background_2.png
+  BG_GAME_VIDEO:  'bg_game_video',  // video/background_2.mp4
 
   // ── Vault sprites (generated in BootScene until real art is ready) ────────
-  VAULT_BODY:     'vault_body',     // images/vault/vault_body.png
-  VAULT_DOOR:     'vault_door',     // images/vault/vault_door.png
-  VAULT_DIAL:     'vault_dial',     // images/vault/vault_dial.png
+  VAULT_BODY:        'vault_body',        // images/vault/vault_body.png
+  VAULT_DOOR:        'vault_door',        // images/vault/vault_door.png
+  VAULT_DIAL:        'vault_dial',        // images/vault/vault_dial.png
+  SECRET_VAULT_DOOR: 'secret_vault_door', // images/vault/secret vault.png
+  SECRET_VAULT_OPEN: 'secret_vault_open', // images/vault/secretvaultopen.png
 
   // ── Item tier icons (generated until real art is ready) ───────────────────
   ITEM_GARBAGE:   'item_garbage',   // images/items/item_garbage.png

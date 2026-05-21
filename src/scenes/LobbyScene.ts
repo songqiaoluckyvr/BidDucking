@@ -1,14 +1,26 @@
 import Phaser from 'phaser';
 import { GAME_CONFIG } from '@config/GameConfig';
-import { generateVault, pickRandomBand } from '@game/VaultGenerator';
+import { VAULT_TIER_CONFIG, type VaultTier, type VaultTierDef } from '@config/VaultTierConfig';
+import { generateVault, pickBandForTier } from '@game/VaultGenerator';
 import { SessionManager } from '@game/SessionManager';
 import { createRng, seedFromString } from '@game/rng';
 import { buildIntelRegistry, buildRevealRegistry } from '../registry';
-import { PAL } from '@ui/palette';
 import { addBackground } from '@ui/sceneBackground';
 import { ASSETS } from '@assets/AssetKeys';
 
 const BALANCE_KEY = 'bidducking_balance';
+const W = 960;
+
+const S_SM = { stroke: '#000000', strokeThickness: 2 } as const;
+const S_MD = { stroke: '#000000', strokeThickness: 3 } as const;
+
+function darkenHex(hex: string, factor = 0.38): string {
+  const c = Phaser.Display.Color.HexStringToColor(hex);
+  const r = Math.floor(c.red   * factor).toString(16).padStart(2, '0');
+  const g = Math.floor(c.green * factor).toString(16).padStart(2, '0');
+  const b = Math.floor(c.blue  * factor).toString(16).padStart(2, '0');
+  return `#${r}${g}${b}`;
+}
 
 export class LobbyScene extends Phaser.Scene {
   private balance: number = GAME_CONFIG.startingBalance;
@@ -18,114 +30,144 @@ export class LobbyScene extends Phaser.Scene {
   create() {
     this.balance = parseInt(localStorage.getItem(BALANCE_KEY) ?? String(GAME_CONFIG.startingBalance), 10);
 
-    addBackground(this);
+    addBackground(this, ASSETS.BG_LOBBY_VIDEO, ASSETS.BG_LOBBY_IMG);
 
-    const viLogo = this.add.image(8, 8, ASSETS.VI_LOGO).setOrigin(0, 0).setDepth(30).setAlpha(0.85);
-    viLogo.setScale(40 / viLogo.height);
+    // VI logo — dark pill backdrop so it reads against any background
+    const viLogoScale = 40 / this.textures.get(ASSETS.VI_LOGO).getSourceImage().height;
+    const viLogoW = this.textures.get(ASSETS.VI_LOGO).getSourceImage().width * viLogoScale;
+    const PAD = 6;
+    const logoBg = this.add.graphics().setDepth(29);
+    logoBg.fillStyle(0x000000, 0.55).fillRoundedRect(8 - PAD, 8 - PAD, viLogoW + PAD * 2, 40 + PAD * 2, 6);
+    const viLogo = this.add.image(8, 8, ASSETS.VI_LOGO).setOrigin(0, 0).setDepth(30).setAlpha(0.92);
+    viLogo.setScale(viLogoScale);
 
-    // Card shifted left so duck has breathing room on the right
-    const cardCX = 415;
-    const cardY = 45; const cardW = 500; const cardH = 492;
+    // Title image
+    this.add.image(W / 2, 70, ASSETS.TITLE).setOrigin(0.5).setDisplaySize(380, 108);
 
-    // ui_border as full card (background texture + glowing frame)
-    this.add.image(cardCX, cardY + cardH / 2, ASSETS.UI_BORDER)
-      .setDisplaySize(cardW, cardH)
-      .setOrigin(0.5)
-      .setAlpha(0.85);
+    // Balance display — top-right corner
+    const BAL_X = W - 16;
+    this.add.text(BAL_X, 14, 'YOUR STASH', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: '#ffffff', ...S_SM,
+    }).setOrigin(1, 0.5);
 
-    // Semi-transparent dark overlay so text stays readable
-    this.add.graphics()
-      .fillStyle(0x04060f, 0.50)
-      .fillRoundedRect(cardCX - cardW / 2 + 12, cardY + 12, cardW - 24, cardH - 24, 12);
-
-    // Title — natural ratio 1536×439 → 3.5:1
-    this.add.image(cardCX, cardY + 100, ASSETS.TITLE)
-      .setOrigin(0.5)
-      .setDisplaySize(460, 132);
-
-    // YOUR STASH
-    this.add.text(cardCX, cardY + 210, 'YOUR STASH', {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: '#9090b8',
-    }).setOrigin(0.5);
-
-    // Balance — hero number
     const balStr = `$${this.balance.toLocaleString()}`;
-    const balStyle = { fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '48px' };
+    const balanceText = this.add.text(BAL_X, 34, balStr, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '26px', color: '#ffffff', ...S_MD,
+    }).setOrigin(1, 0.5);
 
-    // Glow — outer (wide, soft)
-    this.add.text(cardCX, cardY + 258, balStr, {
-      ...balStyle, color: '#3355dd',
-      shadow: { offsetX: 0, offsetY: 0, color: '#3355dd', blur: 60, stroke: true, fill: true },
-    }).setOrigin(0.5).setAlpha(0.55);
+    // ── 3 Vault tier cards ────────────────────────────────────────────────────
+    const CARD_W = 270; const CARD_H = 418; const CARD_GAP = 20;
+    const totalW = 3 * CARD_W + 2 * CARD_GAP;
+    const startX = (W - totalW) / 2;
+    const cardTopY = 148;
 
-    // Glow — inner (tight, bright)
-    this.add.text(cardCX, cardY + 258, balStr, {
-      ...balStyle, color: '#aabbff',
-      shadow: { offsetX: 0, offsetY: 0, color: '#aabbff', blur: 22, stroke: true, fill: true },
-    }).setOrigin(0.5).setAlpha(0.75);
+    (Object.keys(VAULT_TIER_CONFIG) as VaultTier[]).forEach((tier, i) => {
+      const tierDef = VAULT_TIER_CONFIG[tier];
+      const cx = startX + i * (CARD_W + CARD_GAP) + CARD_W / 2;
+      this.buildVaultCard(cx, cardTopY, CARD_W, CARD_H, tierDef, this.balance >= tierDef.ante, balanceText);
+    });
+  }
 
-    // Sharp white text on top
-    const balanceText = this.add.text(cardCX, cardY + 258, balStr, {
-      ...balStyle, color: '#ffffff',
-    }).setOrigin(0.5);
+  private buildVaultCard(
+    cx: number, topY: number, cw: number, ch: number,
+    tierDef: VaultTierDef,
+    canAfford: boolean,
+    balanceText: Phaser.GameObjects.Text,
+  ) {
+    const dim = canAfford ? 1 : 0.40;
+    const col = tierDef.colorNum;
 
-    // BUY-IN label (no background)
-    const pillY = cardY + 312;
-    this.add.text(cardCX, pillY, `BUY-IN: $${GAME_CONFIG.ante.toLocaleString()}`, {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '14px', color: '#9090b8',
-    }).setOrigin(0.5);
+    // Card background + neon border
+    const g = this.add.graphics().setAlpha(dim);
+    g.fillStyle(0x0d0b20, 0.94).fillRect(cx - cw / 2, topY, cw, ch);
+    g.lineStyle(8, col, 0.05).strokeRect(cx - cw / 2, topY, cw, ch);
+    g.lineStyle(4, col, 0.14).strokeRect(cx - cw / 2, topY, cw, ch);
+    g.lineStyle(1, col, 0.80).strokeRect(cx - cw / 2, topY, cw, ch);
+    g.fillStyle(col, 1).fillRect(cx - cw / 2, topY, cw, 3);
 
-    // CRACK THE VAULT — natural ratio 1526×337 → 4.53:1
-    const btnW = 450; const btnH = 100; const btnY = cardY + 370;
-    const btnImg = this.add.image(cardCX, btnY, ASSETS.MAIN_BTN)
-      .setDisplaySize(btnW, btnH)
-      .setOrigin(0.5);
+    // Tier label
+    const tierStrokeSm = { stroke: darkenHex(tierDef.color), strokeThickness: 3 };
+    const tierStrokeXl = { stroke: darkenHex(tierDef.color), strokeThickness: 7 };
+    this.add.text(cx, topY + 26, tierDef.label, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '22px', color: tierDef.color,
+      ...tierStrokeSm,
+    }).setOrigin(0.5).setAlpha(dim);
 
-    this.add.text(cardCX, btnY, 'CRACK THE VAULT', {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '22px', color: '#ffffff',
-    }).setOrigin(0.5);
+    // Divider
+    this.add.graphics().setAlpha(dim * 0.4)
+      .lineStyle(1, col, 0.6)
+      .lineBetween(cx - cw / 2 + 20, topY + 52, cx + cw / 2 - 20, topY + 52);
 
-    const hit = this.add.rectangle(cardCX, btnY, btnW, btnH)
+    // Vault value range
+    this.add.text(cx, topY + 72, 'VAULT VALUE', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: '#ffffff', ...S_SM,
+    }).setOrigin(0.5).setAlpha(dim);
+    this.add.text(cx, topY + 90, `$${tierDef.valueMin.toLocaleString()} – $${tierDef.valueMax.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '16px', color: '#ffffff', ...S_MD,
+    }).setOrigin(0.5).setAlpha(dim);
+
+    // Divider
+    this.add.graphics().setAlpha(dim * 0.4)
+      .lineStyle(1, col, 0.6)
+      .lineBetween(cx - cw / 2 + 20, topY + 118, cx + cw / 2 - 20, topY + 118);
+
+    // Buy-in
+    this.add.text(cx, topY + 136, 'BUY-IN', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '11px', color: '#ffffff', ...S_SM,
+    }).setOrigin(0.5).setAlpha(dim);
+    this.add.text(cx, topY + 174, `$${tierDef.ante.toLocaleString()}`, {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '46px', color: tierDef.color,
+      ...tierStrokeXl,
+    }).setOrigin(0.5).setAlpha(dim);
+
+    // Quality description
+    this.add.text(cx, topY + 226, this.tierDesc(tierDef.tier), {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: '#ffffff',
+      wordWrap: { width: cw - 32 }, align: 'center', lineSpacing: 4, ...S_SM,
+    }).setOrigin(0.5, 0).setAlpha(dim);
+
+    // ENTER button
+    const btnY = topY + ch - 46;
+    const btnImg = this.add.image(cx, btnY, ASSETS.MAIN_BTN)
+      .setDisplaySize(cw - 28, 58).setOrigin(0.5).setAlpha(canAfford ? 1 : 0.25);
+    this.add.text(cx, btnY, 'ENTER', {
+      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '20px', color: '#ffffff', ...S_MD,
+    }).setOrigin(0.5).setAlpha(canAfford ? 1 : 0.35);
+
+    if (!canAfford) return;
+
+    const hit = this.add.rectangle(cx, btnY, cw - 28, 58)
       .setInteractive({ useHandCursor: true });
-
-    hit.on('pointerover', () => { btnImg.setTint(0xbbddff); });
-    hit.on('pointerout',  () => { btnImg.clearTint(); });
-    hit.on('pointerdown', () => {
-      if (this.balance < GAME_CONFIG.ante) {
-        balanceText.setText('Not enough funds').setColor(PAL.red);
+    hit.on('pointerover',  () => btnImg.setTint(0xaaddff));
+    hit.on('pointerout',   () => btnImg.clearTint());
+    hit.on('pointerdown',  () => {
+      if (this.balance < tierDef.ante) {
+        balanceText.setText('Not enough funds').setColor('#ff3355');
         return;
       }
-      this.balance -= GAME_CONFIG.ante;
+      this.balance -= tierDef.ante;
       localStorage.setItem(BALANCE_KEY, String(this.balance));
-      this.startSession();
+      this.startSession(tierDef);
     });
-
-    // Footer — inside the card border
-    this.add.text(cardCX, cardY + cardH - 48, 'Loot  ◆  |  Secrets  🔒  |  5 Rounds  ✦  |  Buy Intel', {
-      fontFamily: 'Rajdhani', fontStyle: 'bold', fontSize: '13px', color: '#6060a0',
-    }).setOrigin(0.5);
-
-    this.addDuck();
   }
 
-  private addDuck() {
-    // Anchor to left edge of image so duck grows rightward from the card border.
-    // Card right edge: cardCX(415) + cardW/2(250) = 665
-    const duck = this.add.image(570, 390, ASSETS.DUCK_MASCOT)
-      .setOrigin(0, 0.5);
-    const scale = Math.min(420 / duck.width, 420 / duck.height);
-    duck.setScale(scale);
+  private tierDesc(tier: VaultTier): string {
+    const map: Record<VaultTier, string> = {
+      bronze: 'Common to uncommon loot.\nA good starting ground.',
+      silver: 'Uncommon to rare items.\nHigher stakes, bigger rewards.',
+      gold:   'Rare to legendary loot.\nFor the bold and the fearless.',
+    };
+    return map[tier];
   }
 
-  private startSession() {
-    const available = this.balance;
+  private startSession(tierDef: VaultTierDef) {
     const seed = `${Date.now()}`;
-    const rng = createRng(seedFromString(seed));
-    const band = pickRandomBand(rng);
-    const vault = generateVault(band, seed, available);
-    const intelRegistry = buildIntelRegistry(rng);
+    const rng  = createRng(seedFromString(seed));
+    const band = pickBandForTier(rng, tierDef);
+    const vault = generateVault(band, seed, tierDef.valueMax, tierDef.valueMin);
+    const intelRegistry  = buildIntelRegistry(rng);
     const revealRegistry = buildRevealRegistry();
     const session = new SessionManager(vault, intelRegistry, revealRegistry, rng);
-    this.scene.start('Bidding', { session });
+    this.scene.start('Bidding', { session, vaultTier: tierDef });
   }
 }

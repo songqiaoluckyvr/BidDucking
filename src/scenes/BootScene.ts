@@ -10,8 +10,12 @@ export class BootScene extends Phaser.Scene {
 
   preload() {
     // Real art — load when the file exists; BootScene generates placeholders for anything missing.
-    this.load.image(ASSETS.BG_MAIN,      `${ASSET_BASE}backgrounds/background.png`);
-    this.load.video(ASSETS.BG_VIDEO,     'assets/video/background.mp4');
+    this.load.image(ASSETS.BG_MAIN,        `${ASSET_BASE}backgrounds/background.png`);
+    this.load.video(ASSETS.BG_VIDEO,       'assets/video/background.mp4');
+    this.load.image(ASSETS.BG_LOBBY_IMG,   `${ASSET_BASE}backgrounds/background_1.png`);
+    this.load.video(ASSETS.BG_LOBBY_VIDEO, 'assets/video/background_loop_1.mp4');
+    this.load.image(ASSETS.BG_GAME_IMG,    `${ASSET_BASE}backgrounds/background_2.png`);
+    this.load.video(ASSETS.BG_GAME_VIDEO,  'assets/video/background_2.mp4');
 
     // Item tier spritesheets — 5 variants per row, all 1536×1024 (frameWidth = 1536/5 = 307)
     this.load.spritesheet(ASSETS.ITEM_SHEET_COMMON,    `${ASSET_BASE}items/common_items.png`,    { frameWidth: 307, frameHeight: 1024 });
@@ -38,7 +42,9 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 307, frameHeight: 512,
     });
 
-    // Vault art (uncomment as files are added)
+    // Vault art
+    this.load.image(ASSETS.SECRET_VAULT_DOOR, `${ASSET_BASE}vault/secret%20vault.png`);
+    this.load.image(ASSETS.SECRET_VAULT_OPEN, `${ASSET_BASE}vault/secretvaultopen.png`);
     // this.load.image(ASSETS.VAULT_BODY,  `${ASSET_BASE}vault/vault_body.png`);
     // this.load.image(ASSETS.VAULT_DOOR,  `${ASSET_BASE}vault/vault_door.png`);
     // this.load.image(ASSETS.VAULT_DIAL,  `${ASSET_BASE}vault/vault_dial.png`);

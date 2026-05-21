@@ -1,9 +1,9 @@
 export const INTEL_COSTS = {
-  tierScan:     100,
-  valueBand:    150,
-  doorSignal:   150,
-  topItemPeek:  250,
-  digitPeek:    250,
+  tierScan:     0,
+  valueBand:    0,
+  doorSignal:   0,
+  topItemPeek:  0,
+  digitPeek:    0,
 } as const;
 
 export type IntelId = keyof typeof INTEL_COSTS;

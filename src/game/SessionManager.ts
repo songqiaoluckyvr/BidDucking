@@ -102,6 +102,12 @@ export class SessionManager {
     return { accepted: false, isJackpot: false, bidDirection, revealResult, sessionComplete: false };
   }
 
+  forfeit(): void {
+    if (this.state.complete) return;
+    const outcome = calculateLostOutcome(this.state.antePaid, this.state.intelCost);
+    this.state = { ...this.state, complete: true, outcome };
+  }
+
   // ─── Read-only access ──────────────────────────────────────────────────────
 
   getSessionState(): Readonly<SessionState> {
