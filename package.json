@@ -1,6 +1,6 @@
 {
   "name": "bidducking",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Bid Ducking — casino vault appraisal game",
   "scripts": {
     "dev": "vite",
