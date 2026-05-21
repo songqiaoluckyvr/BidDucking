@@ -174,6 +174,9 @@ export class BiddingScene extends Phaser.Scene {
       pg.destroy();
     }
 
+    this.sound.stopAll();
+    this.sound.play(ASSETS.BGM_BIDDING, { loop: true, volume: 0.18 });
+
     // Static background — swapped for video when vault opens
     if (this.textures.exists(ASSETS.BG_GAME_IMG)) {
       this.bgImage = this.add.image(W / 2, H / 2, ASSETS.BG_GAME_IMG).setDepth(-1);

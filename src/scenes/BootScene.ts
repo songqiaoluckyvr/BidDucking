@@ -49,6 +49,10 @@ export class BootScene extends Phaser.Scene {
     // this.load.image(ASSETS.VAULT_DOOR,  `${ASSET_BASE}vault/vault_door.png`);
     // this.load.image(ASSETS.VAULT_DIAL,  `${ASSET_BASE}vault/vault_dial.png`);
 
+    // Music
+    this.load.audio(ASSETS.BGM_LOBBY,   'assets/audio/music/Neon Duck Casino_lobby.mp3');
+    this.load.audio(ASSETS.BGM_BIDDING, 'assets/audio/music/Neon Duck Casino _game.mp3');
+
     // Item icons (uncomment as files are added)
     // this.load.image(ASSETS.ITEM_GARBAGE,   `${ASSET_BASE}items/item_garbage.png`);
     // this.load.image(ASSETS.ITEM_COMMON,    `${ASSET_BASE}items/item_common.png`);

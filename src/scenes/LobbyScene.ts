@@ -32,6 +32,9 @@ export class LobbyScene extends Phaser.Scene {
 
     addBackground(this, ASSETS.BG_LOBBY_VIDEO, ASSETS.BG_LOBBY_IMG);
 
+    this.sound.stopAll();
+    this.sound.play(ASSETS.BGM_LOBBY, { loop: true, volume: 0.18 });
+
     // VI logo — dark pill backdrop so it reads against any background
     const viLogoScale = 40 / this.textures.get(ASSETS.VI_LOGO).getSourceImage().height;
     const viLogoW = this.textures.get(ASSETS.VI_LOGO).getSourceImage().width * viLogoScale;
